@@ -240,172 +240,97 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 
 <script>
 // ── PUZZLE DATA ──────────────────────────────────────────────
-// ── ALL PUZZLE DAYS ─────────────────────────────────────────
-const ALL_DAYS = [
-  // March 17
-  [
-    {
-      section:'🧩 Memory', icon:'🧩', type:'memory',
-      instruction:'Remember this sequence! You have 10 seconds.',
-      sequence:['🐘','🐒','🦁','🐍','🐘','🐒'],
-      answer:['🐘','🐒','🦁','🐍','🐘','🐒'],
-      decoys:['🐶','🐱','🐷'],
-      hint:'The first item was an elephant.',
-      answerTime:35
-    },
-    {
-      section:'🔍 Logic', icon:'🔍', type:'choice',
-      scenario:'Someone broke a vase. Who did it?',
-      clues:[
-        'Maria was in her room studying during the incident.',
-        'Tom was playing soccer in the backyard with friends.',
-        'Lily was in the living room watching TV when she heard a crash.',
-        'Max admitted he was in the hallway where the vase was located.'
-      ],
-      options:['Maria','Tom','Lily','Max'],
-      answer:'Max',
-      explanation:'Only Max was in the hallway where the vase was located, while the others had alibis.',
-      answerTime:30
-    },
-    {
-      section:'📝 Language', icon:'📝', type:'choice',
-      question:'Puppy is to Dog as Kitten is to ___',
-      options:['Cat','Mouse','Bird','Fish'],
-      answer:'Cat',
-      explanation:'A puppy grows up to be a dog. Similarly, a kitten grows up to be a cat.',
-      answerTime:20
-    },
-    {
-      section:'🔢 Pattern', icon:'🔢', type:'choice',
-      question:'What number comes next in this sequence?',
-      sequence:[2,4,8,16,32],
-      options:[48,64,72,80],
-      answer:64,
-      rule:'Multiply by 2 each time',
-      explanation:'Each number doubles: 2→4→8→16→32→64.',
-      answerTime:20
-    },
-    {
-      section:'🔷 Spatial', icon:'🔷', type:'choice',
-      question:'A letter T is facing UP. It is rotated 90 degrees counterclockwise. Which direction does it face now?',
-      options:['Up','Down','Left','Right'],
-      answer:'Left',
-      explanation:'Rotating 90 degrees counterclockwise turns the T to face left.',
-      hint:'Think of turning a clock hand from 12 oclock towards 9 oclock.',
-      answerTime:20
-    },
-    {
-      section:'➗ Math', icon:'➗', type:'math',
-      question:'Each row follows the same rule. What is the missing number?',
-      grid:[[2,6,10],[3,7,null],[4,8,12]],
-      answer:11,
-      options:[9,10,11,13],
-      rule:'Add 4 each time across the row.',
-      explanation:'Row 1: 2+4=6, 6+4=10. Row 2: 3+4=7, 7+4=11. Row 3: 4+4=8, 8+4=12.',
-      answerTime:25
-    },
-    {
-      section:'♟️ Strategy', icon:'♟️', type:'strategy',
-      question:'Put these steps in the correct order to wrap a gift:',
-      shuffled:['Place the gift in the center of the wrapping paper','Cut the wrapping paper to size','Tape the wrapping paper to secure it','Fold the edges of the wrapping paper over the gift'],
-      answer:['Cut the wrapping paper to size','Place the gift in the center of the wrapping paper','Fold the edges of the wrapping paper over the gift','Tape the wrapping paper to secure it'],
-      explanation:'You must cut first, then position the gift, fold the paper over, and finally tape it closed.',
-      answerTime:35
-    },
-    {
-      section:'💡 Creativity', icon:'💡', type:'creativity',
-      riddle:'I can be cracked, made, told, and played. What am I?',
-      answer:'A joke',
-      hint:'People often share me to make others laugh.',
-      explanation:'A joke can be cracked (like a pun), made (created), told (shared verbally), and played (as in playing a prank).',
-      wrongOptions:['An egg','A game','A story'],
-      answerTime:30
-    }
-  ],
-  // March 18
-  [
-    {
-      section:'🧩 Memory', icon:'🧩', type:'memory',
-      instruction:'Remember this sequence! You have 10 seconds.',
-      sequence:['🐶','🐱','🐰','🐢','🐶','🐱'],
-      answer:['🐶','🐱','🐰','🐢','🐶','🐱'],
-      decoys:['🐸','🐭','🐧'],
-      hint:'The first item was a dog.',
-      answerTime:35
-    },
-    {
-      section:'🔍 Logic', icon:'🔍', type:'choice',
-      scenario:'Someone broke a window. Who did it?',
-      clues:[
-        'Mia was playing video games in her room at the time.',
-        'Liam was outside practicing soccer.',
-        'Noah was inside reading a book the whole afternoon.',
-        'The window was broken around 5pm.'
-      ],
-      options:['Mia','Liam','Noah','Emma'],
-      answer:'Liam',
-      explanation:'Liam was the only one outside around the time the window was broken, making it likely he was responsible.',
-      answerTime:30
-    },
-    {
-      section:'📝 Language', icon:'📝', type:'choice',
-      question:'Tree is to Forest as Fish is to ___',
-      options:['River','Ocean','Swim','School'],
-      answer:'School',
-      explanation:'A tree is a single unit that is part of a forest, just as a fish is a single unit that is part of a school.',
-      answerTime:20
-    },
-    {
-      section:'🔢 Pattern', icon:'🔢', type:'choice',
-      question:'What number comes next in this sequence?',
-      sequence:[1,1,2,3,5],
-      options:[7,8,9,10],
-      answer:8,
-      rule:'Fibonacci-style sequence',
-      explanation:'Each number is the sum of the two before it: 1+1=2, 1+2=3, 2+3=5, 3+5=8.',
-      answerTime:20
-    },
-    {
-      section:'🔷 Spatial', icon:'🔷', type:'choice',
-      question:'A letter L is positioned with its vertical line pointing up and its horizontal line pointing to the right. It is rotated 90 degrees clockwise. Which direction does the vertical line point now?',
-      options:['Up','Down','Left','Right'],
-      answer:'Right',
-      explanation:'Rotating the letter L 90 degrees clockwise makes its vertical line point to the right.',
-      hint:'Think about how you would rotate a flagpole on a flag that is extended to the side.',
-      answerTime:20
-    },
-    {
-      section:'➗ Math', icon:'➗', type:'math',
-      question:'Each row follows the same rule. What is the missing number?',
-      grid:[[1,2,3],[2,4,6],[null,8,12]],
-      answer:4,
-      options:[3,4,5,6],
-      rule:'Multiply the first number by 2 to get the second, then by 3 to get the third.',
-      explanation:'Row 1: 1×2=2, 1×3=3. Row 2: 2×2=4, 2×3=6. Row 3: ?×2=8, so ?=4.',
-      answerTime:25
-    },
-    {
-      section:'♟️ Strategy', icon:'♟️', type:'strategy',
-      question:'Put these steps in the correct order to wash a car:',
-      shuffled:['Dry the car with a towel','Rinse the car with water','Apply soap and scrub the car','Park the car in a shaded area'],
-      answer:['Park the car in a shaded area','Rinse the car with water','Apply soap and scrub the car','Dry the car with a towel'],
-      explanation:'Always park first to protect the paint, rinse off loose dirt, scrub with soap, then dry to avoid water spots.',
-      answerTime:35
-    },
-    {
-      section:'💡 Creativity', icon:'💡', type:'creativity',
-      riddle:'The more you take, the more you leave behind. What am I?',
-      answer:'Footsteps',
-      hint:'Think about what happens when you walk.',
-      explanation:'Every step you take removes a footstep from ahead of you but leaves one behind.',
-      wrongOptions:['Time','Memories','Shadows'],
-      answerTime:30
-    }
-  ]
-];
+// ── SUPABASE CONNECTION ─────────────────────────────────────
+const SUPABASE_URL = 'https://nocgxejxtydoztldbsev.supabase.co';
+const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 
-// Pick a random day each time so no two playtests are the same
-const PUZZLES = ALL_DAYS[Math.floor(Math.random() * ALL_DAYS.length)];
+let PUZZLES = [];
+
+async function loadPuzzlesFromSupabase() {
+  const today = new Date().toISOString().split('T')[0];
+  const url = `${SUPABASE_URL}/rest/v1/puzzles?puzzle_date=eq.${today}&is_active=eq.true&order=brain_section`;
+  
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    
+    const data = await res.json();
+    
+    if(!data || data.length === 0) {
+      showLoadError("No puzzles found for today (" + today + "). Please run the generator first.");
+      return false;
+    }
+    
+    // Map Supabase rows to game puzzle format
+    const sectionOrder = ['memory','logic','language','pattern','spatial','math','strategy','creativity'];
+    const sectionMeta = {
+      memory:   { section:'🧩 Memory',   icon:'🧩', type:'memory',     answerTime:35 },
+      logic:    { section:'🔍 Logic',    icon:'🔍', type:'choice',     answerTime:30 },
+      language: { section:'📝 Language', icon:'📝', type:'choice',     answerTime:20 },
+      pattern:  { section:'🔢 Pattern',  icon:'🔢', type:'choice',     answerTime:20 },
+      spatial:  { section:'🔷 Spatial',  icon:'🔷', type:'choice',     answerTime:20 },
+      math:     { section:'➗ Math',      icon:'➗', type:'math',       answerTime:25 },
+      strategy: { section:'♟️ Strategy', icon:'♟️', type:'strategy',  answerTime:35 },
+      creativity:{ section:'💡 Creativity',icon:'💡',type:'creativity',answerTime:30 }
+    };
+    
+    PUZZLES = sectionOrder.map(key => {
+      const row = data.find(r => r.brain_section === key);
+      if(!row) return null;
+      const d = row.puzzle_data;
+      const meta = sectionMeta[key];
+      
+      if(key === 'memory') {
+        return { ...meta, instruction: d.instruction, sequence: d.sequence, answer: d.answer, decoys: d.decoys, hint: d.hint };
+      } else if(key === 'logic') {
+        return { ...meta, scenario: d.scenario, clues: d.clues, options: d.options, answer: d.answer, explanation: d.explanation };
+      } else if(key === 'language') {
+        return { ...meta, question: d.question, options: d.options, answer: d.answer, explanation: d.explanation };
+      } else if(key === 'pattern') {
+        return { ...meta, question: d.question, sequence: d.sequence, options: d.options, answer: d.answer, rule: d.rule, explanation: 'The rule: ' + d.rule };
+      } else if(key === 'spatial') {
+        return { ...meta, question: d.question, options: d.options, answer: d.answer, explanation: d.explanation, hint: d.hint };
+      } else if(key === 'math') {
+        return { ...meta, question: d.question, grid: d.grid, answer: d.answer, options: d.options, rule: d.rule, explanation: d.rule };
+      } else if(key === 'strategy') {
+        return { ...meta, question: d.question, shuffled: d.shuffled_steps, answer: d.answer, explanation: d.explanation || 'Put the steps in the correct order.' };
+      } else if(key === 'creativity') {
+        return { ...meta, riddle: d.riddle, answer: d.answer, hint: d.hint, explanation: d.explanation, wrongOptions: d.wrong_options || [] };
+      }
+      return null;
+    }).filter(Boolean);
+    
+    // Update the date shown on home screen
+    const dateEl = document.querySelector('.home-card h3');
+    if(dateEl) {
+      const d = new Date();
+      dateEl.textContent = d.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+    }
+    
+    return true;
+  } catch(err) {
+    showLoadError("Could not connect to database: " + err.message);
+    return false;
+  }
+}
+
+function showLoadError(msg) {
+  document.getElementById('home').innerHTML = `
+    <div style="text-align:center;padding:40px 20px;max-width:400px">
+      <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+      <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px">No Puzzles Today</div>
+      <div style="font-size:14px;color:var(--ink-light);margin-bottom:24px">${msg}</div>
+      <div style="background:var(--white);border-radius:14px;padding:16px;border:1px solid var(--border);font-size:13px;text-align:left">
+        Run this in your terminal:<br><br>
+        <code style="background:var(--cream);padding:4px 8px;border-radius:6px">node generate-puzzles.js</code>
+      </div>
+    </div>`;
+}
+
 
 // ── STATE ────────────────────────────────────────────────────
 let currentIdx = 0;
@@ -482,7 +407,13 @@ function stopTimer() { clearInterval(timerInterval); }
 function elapsed() { return Math.floor((Date.now()-startTime)/1000); }
 
 // ── GAME FLOW ────────────────────────────────────────────────
-function startGame() {
+async function startGame() {
+  const btn = document.querySelector('.btn-start');
+  if(btn) { btn.textContent = 'Loading puzzles...'; btn.disabled = true; }
+  
+  const ok = await loadPuzzlesFromSupabase();
+  if(!ok) return;
+  
   currentIdx=0; scores=[]; results=[]; totalScore=0;
   gameStartTime=Date.now();
   showScreen('puzzle');
