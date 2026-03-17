@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brain Escape — Playtest</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cream: #F7F4EE;
+  --white: #FFFFFF;
+  --ink: #1A1A2E;
+  --ink-light: #5A5A7A;
+  --accent: #FF5C3A;
+  --accent2: #4F46E5;
+  --green: #10B981;
+  --gold: #F59E0B;
+  --border: #E2DDD5;
+  --shadow: 0 2px 20px rgba(26,26,46,0.07);
+  --shadow-lg: 0 8px 40px rgba(26,26,46,0.12);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--ink); min-height:100vh; }
+
+/* ── SCREENS ── */
+.screen { display:none; min-height:100vh; flex-direction:column; }
+.screen.active { display:flex; }
+
+/* ── HOME ── */
+#home { align-items:center; justify-content:center; padding:40px 20px; }
+.logo { font-family:'Syne',sans-serif; font-size:48px; font-weight:800; letter-spacing:-2px; text-align:center; margin-bottom:4px; }
+.logo span { color:var(--accent); }
+.logo-sub { font-size:12px; font-weight:600; letter-spacing:4px; text-transform:uppercase; color:var(--ink-light); text-align:center; margin-bottom:40px; }
+.home-card { background:var(--white); border-radius:24px; padding:28px; box-shadow:var(--shadow-lg); border:1px solid var(--border); width:100%; max-width:420px; margin-bottom:24px; }
+.home-card h3 { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; margin-bottom:4px; }
+.home-card p { font-size:13px; color:var(--ink-light); margin-bottom:20px; }
+.puzzle-chips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
+.chip { background:var(--cream); border-radius:12px; padding:10px 6px; text-align:center; border:1px solid var(--border); }
+.chip .ci { font-size:18px; display:block; margin-bottom:3px; }
+.chip .cl { font-size:9px; font-weight:600; color:var(--ink-light); text-transform:uppercase; letter-spacing:0.5px; }
+.streak-pill { display:flex; align-items:center; justify-content:center; gap:8px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:12px; }
+.streak-pill span { font-size:13px; font-weight:500; color:#92400E; }
+.streak-num { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--gold); }
+.btn-start { width:100%; max-width:420px; padding:18px; background:var(--ink); color:white; border:none; border-radius:16px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; cursor:pointer; letter-spacing:-0.5px; transition:all 0.2s; }
+.btn-start:hover { background:var(--accent2); transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+
+/* ── PUZZLE HEADER ── */
+.puzzle-header { background:var(--white); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
+.progress-dots { display:flex; gap:5px; flex:1; }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--border); transition:all 0.3s; }
+.dot.done { background:var(--green); }
+.dot.active { background:var(--accent); width:22px; border-radius:4px; }
+.timer { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; background:var(--cream); border:1px solid var(--border); border-radius:8px; padding:5px 11px; min-width:48px; text-align:center; transition:all 0.3s; }
+.timer.warn { color:var(--accent); border-color:var(--accent); background:#FFF5F3; }
+.score-badge { font-size:12px; font-weight:600; color:var(--ink-light); white-space:nowrap; }
+
+/* ── PUZZLE BODY ── */
+.puzzle-body { padding:20px; display:flex; flex-direction:column; gap:16px; flex:1; max-width:500px; width:100%; margin:0 auto; }
+.section-tag { display:inline-flex; align-items:center; gap:6px; background:var(--white); border:1px solid var(--border); border-radius:100px; padding:5px 12px; font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--ink-light); align-self:flex-start; }
+.puzzle-q { font-family:'Syne',sans-serif; font-size:21px; font-weight:700; line-height:1.3; letter-spacing:-0.4px; }
+.puzzle-sub { font-size:13px; color:var(--ink-light); }
+
+/* ── MEMORY ── */
+.mem-phase { background:var(--white); border-radius:18px; border:1px solid var(--border); padding:24px; text-align:center; }
+.mem-phase h4 { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; margin-bottom:6px; }
+.mem-countdown { font-family:'Syne',sans-serif; font-size:48px; font-weight:800; color:var(--accent2); margin:12px 0; }
+.mem-seq { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:16px 0; }
+.mem-item { width:54px; height:54px; border-radius:14px; background:var(--cream); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:26px; transition:all 0.3s; }
+.mem-item.hidden { opacity:0; transform:scale(0.8); }
+.mem-grid { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; background:var(--white); border-radius:18px; border:1px solid var(--border); padding:20px; }
+.mem-tap { width:54px; height:54px; border-radius:14px; background:var(--cream); border:2px solid var(--border); font-size:26px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+.mem-tap:hover { border-color:var(--accent2); transform:scale(1.05); }
+.mem-tap.selected { border-color:var(--accent2); background:#EEF2FF; }
+.mem-tap.correct-tap { border-color:var(--green); background:#F0FDF4; }
+.mem-tap.wrong-tap { border-color:var(--accent); background:#FFF5F3; }
+.mem-selected-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; min-height:54px; align-items:center; background:var(--cream); border-radius:12px; padding:8px; border:1px dashed var(--border); }
+.mem-selected-item { width:46px; height:46px; border-radius:10px; background:var(--white); border:2px solid var(--accent2); display:flex; align-items:center; justify-content:center; font-size:22px; }
+.mem-actions { display:flex; gap:8px; }
+
+/* ── OPTIONS ── */
+.options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.options.single-col { grid-template-columns:1fr; }
+.opt { background:var(--white); border:2px solid var(--border); border-radius:14px; padding:15px; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; color:var(--ink); cursor:pointer; transition:all 0.15s; text-align:center; }
+.opt:hover:not(:disabled) { border-color:var(--accent2); color:var(--accent2); transform:translateY(-1px); }
+.opt:disabled { cursor:default; }
+.opt.correct { border-color:var(--green); background:#F0FDF4; color:#166534; }
+.opt.wrong { border-color:var(--accent); background:#FFF5F3; color:#9B1C1C; }
+
+/* ── MATH GRID ── */
+.math-grid { background:var(--white); border-radius:16px; border:1px solid var(--border); padding:16px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.math-cell { background:var(--cream); border-radius:10px; border:1px solid var(--border); height:52px; display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:20px; font-weight:700; }
+.math-cell.missing { background:var(--accent2); border-color:var(--accent2); color:white; font-size:24px; }
+
+/* ── STRATEGY DRAG ── */
+.drag-list { display:flex; flex-direction:column; gap:8px; }
+.drag-item { background:var(--white); border:2px solid var(--border); border-radius:14px; padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:grab; transition:all 0.2s; font-size:14px; font-weight:500; user-select:none; }
+.drag-item:active { cursor:grabbing; opacity:0.8; }
+.drag-item.dragging { opacity:0.4; border-style:dashed; }
+.drag-item.drag-over { border-color:var(--accent2); background:#EEF2FF; }
+.drag-handle { color:var(--border); font-size:16px; flex-shrink:0; }
+.drag-num { font-family:'Syne',sans-serif; font-weight:800; color:var(--accent2); font-size:16px; min-width:20px; }
+.drag-item.correct-order { border-color:var(--green); background:#F0FDF4; }
+.drag-item.wrong-order { border-color:var(--accent); background:#FFF5F3; }
+
+/* ── CREATIVITY TYPE ── */
+.type-box { background:var(--white); border:2px solid var(--border); border-radius:14px; padding:16px; }
+.type-input { width:100%; border:none; outline:none; font-family:'DM Sans',sans-serif; font-size:18px; font-weight:500; color:var(--ink); background:transparent; }
+.type-input::placeholder { color:var(--border); }
+.type-hint { font-size:12px; color:var(--ink-light); margin-top:8px; padding-top:8px; border-top:1px solid var(--border); }
+.btn-submit { width:100%; padding:15px; background:var(--accent2); color:white; border:none; border-radius:14px; font-family:'Syne',sans-serif; font-size:16px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+.btn-submit:hover { background:#3730A3; }
+
+/* ── REVEAL ── */
+.reveal { border-radius:14px; border:2px solid var(--green); padding:16px; background:var(--white); animation:slideUp 0.3s ease; }
+.reveal.wrong-reveal { border-color:var(--accent); }
+@keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.reveal-wrong { font-size:13px; font-weight:600; color:#9B1C1C; margin-bottom:4px; }
+.reveal-correct { font-size:13px; font-weight:600; color:#166534; margin-bottom:8px; }
+.reveal-explain { font-size:13px; color:var(--ink-light); line-height:1.5; padding-top:8px; border-top:1px solid var(--border); }
+.btn-next { width:100%; padding:15px; background:var(--ink); color:white; border:none; border-radius:14px; font-family:'Syne',sans-serif; font-size:16px; font-weight:700; cursor:pointer; transition:all 0.2s; margin-top:4px; }
+.btn-next:hover { background:var(--accent2); }
+.skip-btn { background:none; border:none; color:var(--ink-light); font-size:12px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; align-self:center; padding:4px; }
+.auto-next { display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; background:var(--cream); border-radius:12px; margin-top:8px; font-size:13px; color:var(--ink-light); font-weight:500; }
+.auto-next-circle { width:32px; height:32px; border-radius:50%; border:3px solid var(--accent2); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:14px; color:var(--accent2); flex-shrink:0; transition:all 0.3s; }
+.answers-summary { background:var(--white); border-radius:18px; border:1px solid var(--border); overflow:hidden; margin-bottom:16px; }
+.answers-sum-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--cream); }
+.answer-row { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); }
+.answer-row:last-child { border-bottom:none; }
+.answer-icon { font-size:16px; flex-shrink:0; }
+.answer-content { flex:1; min-width:0; }
+.answer-section-lbl { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-light); margin-bottom:2px; }
+.answer-val { font-size:13px; font-weight:600; color:var(--ink); }
+.answer-explain { font-size:11px; color:var(--ink-light); margin-top:2px; line-height:1.4; }
+
+/* ── LOGIC CLUES ── */
+.clues { background:var(--white); border-radius:16px; border:1px solid var(--border); overflow:hidden; }
+.clue { padding:13px 16px; border-bottom:1px solid var(--border); font-size:14px; display:flex; gap:10px; align-items:flex-start; }
+.clue:last-child { border-bottom:none; }
+.clue-n { font-family:'Syne',sans-serif; font-weight:800; color:var(--accent2); min-width:18px; font-size:13px; }
+
+/* ── SEQUENCE ROW ── */
+.seq-row { display:flex; align-items:center; gap:6px; justify-content:center; flex-wrap:wrap; background:var(--white); border-radius:16px; border:1px solid var(--border); padding:20px; }
+.seq-n { width:50px; height:50px; border-radius:12px; background:var(--cream); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:19px; font-weight:700; }
+.seq-n.unknown { background:var(--accent2); border-color:var(--accent2); color:white; font-size:22px; }
+.seq-arr { color:var(--border); font-size:16px; }
+
+/* ── RESULTS ── */
+#results { align-items:center; justify-content:center; padding:32px 20px; }
+.results-inner { max-width:420px; width:100%; text-align:center; }
+.big-emoji { font-size:60px; margin-bottom:12px; display:block; animation:pop 0.5s ease; }
+@keyframes pop { 0%{transform:scale(0)} 70%{transform:scale(1.2)} 100%{transform:scale(1)} }
+.results-title { font-family:'Syne',sans-serif; font-size:34px; font-weight:800; letter-spacing:-1px; margin-bottom:4px; }
+.results-sub { font-size:14px; color:var(--ink-light); margin-bottom:28px; }
+.score-card { background:var(--white); border-radius:22px; padding:24px; box-shadow:var(--shadow-lg); border:1px solid var(--border); margin-bottom:20px; }
+.big-score { font-family:'Syne',sans-serif; font-size:64px; font-weight:800; letter-spacing:-3px; line-height:1; }
+.big-score span { color:var(--accent2); }
+.score-lbl { font-size:12px; color:var(--ink-light); margin-bottom:20px; }
+.emoji-row { font-size:22px; letter-spacing:3px; margin-bottom:20px; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding-top:18px; border-top:1px solid var(--border); }
+.stat-item { text-align:center; }
+.stat-val { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; }
+.stat-lbl { font-size:11px; color:var(--ink-light); margin-top:2px; }
+.pct-bar { background:var(--white); border-radius:12px; padding:14px; margin-bottom:20px; border:1px solid var(--border); text-align:left; }
+.pct-bar p { font-size:13px; font-weight:600; margin-bottom:8px; }
+.bar-track { background:var(--cream); border-radius:100px; height:7px; overflow:hidden; }
+.bar-fill { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:100px; }
+.bar-sub { font-size:11px; color:var(--ink-light); margin-top:5px; }
+.btn-share { width:100%; padding:16px; background:var(--accent); color:white; border:none; border-radius:14px; font-family:'Syne',sans-serif; font-size:16px; font-weight:700; cursor:pointer; margin-bottom:10px; transition:all 0.2s; }
+.btn-share:hover { background:#e5422a; }
+.btn-again { width:100%; padding:14px; background:var(--white); color:var(--ink); border:2px solid var(--border); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.btn-again:hover { border-color:var(--ink); }
+
+/* ── CREATIVE HINT BOX ── */
+.hint-box { background:#FFFBEB; border:1px solid #FDE68A; border-radius:12px; padding:12px 14px; font-size:13px; color:#92400E; }
+</style>
+</head>
+<body>
+
+<!-- HOME -->
+<div id="home" class="screen active">
+  <div class="logo">🧠 Brain<span>Escape</span></div>
+  <div class="logo-sub">Daily Mental Challenge</div>
+  <div class="home-card">
+    <h3>March 17, 2026</h3>
+    <p>8 puzzles · ~6 minutes · Difficulty: Easy</p>
+    <div class="puzzle-chips">
+      <div class="chip"><span class="ci">🧩</span><span class="cl">Memory</span></div>
+      <div class="chip"><span class="ci">🔍</span><span class="cl">Logic</span></div>
+      <div class="chip"><span class="ci">📝</span><span class="cl">Language</span></div>
+      <div class="chip"><span class="ci">🔢</span><span class="cl">Pattern</span></div>
+      <div class="chip"><span class="ci">🔷</span><span class="cl">Spatial</span></div>
+      <div class="chip"><span class="ci">➗</span><span class="cl">Math</span></div>
+      <div class="chip"><span class="ci">♟️</span><span class="cl">Strategy</span></div>
+      <div class="chip"><span class="ci">💡</span><span class="cl">Creativity</span></div>
+    </div>
+    <div class="streak-pill">
+      <span>🔥 Current streak</span>
+      <span class="streak-num">1</span>
+      <span>day</span>
+    </div>
+  </div>
+  <button class="btn-start" onclick="startGame()">Start Today's Challenge</button>
+</div>
+
+<!-- PUZZLE -->
+<div id="puzzle" class="screen">
+  <div class="puzzle-header">
+    <div class="progress-dots" id="dots"></div>
+    <div class="score-badge" id="scoreBadge">0 pts</div>
+    <div class="timer" id="timer">0:45</div>
+  </div>
+  <div class="puzzle-body" id="puzzleBody"></div>
+</div>
+
+<!-- RESULTS -->
+<div id="results" class="screen">
+  <div class="results-inner">
+    <span class="big-emoji" id="resEmoji">🎉</span>
+    <div class="results-title" id="resTitle">Escaped!</div>
+    <div class="results-sub" id="resSub">You completed today's Brain Escape</div>
+    <div class="score-card">
+      <div class="big-score" id="resBigScore">0<span>/1200</span></div>
+      <div class="score-lbl">points scored today</div>
+      <div class="emoji-row" id="resEmojis"></div>
+      <div class="stat-grid">
+        <div class="stat-item"><div class="stat-val" id="resSolved">0/8</div><div class="stat-lbl">Solved</div></div>
+        <div class="stat-item"><div class="stat-val" id="resTime">0:00</div><div class="stat-lbl">Time</div></div>
+        <div class="stat-item"><div class="stat-val">🔥 1</div><div class="stat-lbl">Streak</div></div>
+      </div>
+    </div>
+    <div class="pct-bar">
+      <p id="resPct">Better than 0% of players today</p>
+      <div class="bar-track"><div class="bar-fill" id="resBar" style="width:0%"></div></div>
+      <div class="bar-sub">Be the first to share your result!</div>
+    </div>
+    <div id="answersSummaryContainer"></div><button class="btn-share" onclick="shareResult()">📤 Share Result Card</button>
+    <button class="btn-again" onclick="showScreen('home')">← Back to Home</button>
+  </div>
+</div>
+
+<script>
+// ── PUZZLE DATA ──────────────────────────────────────────────
+// ── ALL PUZZLE DAYS ─────────────────────────────────────────
+const ALL_DAYS = [
+  // March 17
+  [
+    {
+      section:'🧩 Memory', icon:'🧩', type:'memory',
+      instruction:'Remember this sequence! You have 10 seconds.',
+      sequence:['🐘','🐒','🦁','🐍','🐘','🐒'],
+      answer:['🐘','🐒','🦁','🐍','🐘','🐒'],
+      decoys:['🐶','🐱','🐷'],
+      hint:'The first item was an elephant.',
+      answerTime:35
+    },
+    {
+      section:'🔍 Logic', icon:'🔍', type:'choice',
+      scenario:'Someone broke a vase. Who did it?',
+      clues:[
+        'Maria was in her room studying during the incident.',
+        'Tom was playing soccer in the backyard with friends.',
+        'Lily was in the living room watching TV when she heard a crash.',
+        'Max admitted he was in the hallway where the vase was located.'
+      ],
+      options:['Maria','Tom','Lily','Max'],
+      answer:'Max',
+      explanation:'Only Max was in the hallway where the vase was located, while the others had alibis.',
+      answerTime:30
+    },
+    {
+      section:'📝 Language', icon:'📝', type:'choice',
+      question:'Puppy is to Dog as Kitten is to ___',
+      options:['Cat','Mouse','Bird','Fish'],
+      answer:'Cat',
+      explanation:'A puppy grows up to be a dog. Similarly, a kitten grows up to be a cat.',
+      answerTime:20
+    },
+    {
+      section:'🔢 Pattern', icon:'🔢', type:'choice',
+      question:'What number comes next in this sequence?',
+      sequence:[2,4,8,16,32],
+      options:[48,64,72,80],
+      answer:64,
+      rule:'Multiply by 2 each time',
+      explanation:'Each number doubles: 2→4→8→16→32→64.',
+      answerTime:20
+    },
+    {
+      section:'🔷 Spatial', icon:'🔷', type:'choice',
+      question:'A letter T is facing UP. It is rotated 90 degrees counterclockwise. Which direction does it face now?',
+      options:['Up','Down','Left','Right'],
+      answer:'Left',
+      explanation:'Rotating 90 degrees counterclockwise turns the T to face left.',
+      hint:'Think of turning a clock hand from 12 oclock towards 9 oclock.',
+      answerTime:20
+    },
+    {
+      section:'➗ Math', icon:'➗', type:'math',
+      question:'Each row follows the same rule. What is the missing number?',
+      grid:[[2,6,10],[3,7,null],[4,8,12]],
+      answer:11,
+      options:[9,10,11,13],
+      rule:'Add 4 each time across the row.',
+      explanation:'Row 1: 2+4=6, 6+4=10. Row 2: 3+4=7, 7+4=11. Row 3: 4+4=8, 8+4=12.',
+      answerTime:25
+    },
+    {
+      section:'♟️ Strategy', icon:'♟️', type:'strategy',
+      question:'Put these steps in the correct order to wrap a gift:',
+      shuffled:['Place the gift in the center of the wrapping paper','Cut the wrapping paper to size','Tape the wrapping paper to secure it','Fold the edges of the wrapping paper over the gift'],
+      answer:['Cut the wrapping paper to size','Place the gift in the center of the wrapping paper','Fold the edges of the wrapping paper over the gift','Tape the wrapping paper to secure it'],
+      explanation:'You must cut first, then position the gift, fold the paper over, and finally tape it closed.',
+      answerTime:35
+    },
+    {
+      section:'💡 Creativity', icon:'💡', type:'creativity',
+      riddle:'I can be cracked, made, told, and played. What am I?',
+      answer:'A joke',
+      hint:'People often share me to make others laugh.',
+      explanation:'A joke can be cracked (like a pun), made (created), told (shared verbally), and played (as in playing a prank).',
+      wrongOptions:['An egg','A game','A story'],
+      answerTime:30
+    }
+  ],
+  // March 18
+  [
+    {
+      section:'🧩 Memory', icon:'🧩', type:'memory',
+      instruction:'Remember this sequence! You have 10 seconds.',
+      sequence:['🐶','🐱','🐰','🐢','🐶','🐱'],
+      answer:['🐶','🐱','🐰','🐢','🐶','🐱'],
+      decoys:['🐸','🐭','🐧'],
+      hint:'The first item was a dog.',
+      answerTime:35
+    },
+    {
+      section:'🔍 Logic', icon:'🔍', type:'choice',
+      scenario:'Someone broke a window. Who did it?',
+      clues:[
+        'Mia was playing video games in her room at the time.',
+        'Liam was outside practicing soccer.',
+        'Noah was inside reading a book the whole afternoon.',
+        'The window was broken around 5pm.'
+      ],
+      options:['Mia','Liam','Noah','Emma'],
+      answer:'Liam',
+      explanation:'Liam was the only one outside around the time the window was broken, making it likely he was responsible.',
+      answerTime:30
+    },
+    {
+      section:'📝 Language', icon:'📝', type:'choice',
+      question:'Tree is to Forest as Fish is to ___',
+      options:['River','Ocean','Swim','School'],
+      answer:'School',
+      explanation:'A tree is a single unit that is part of a forest, just as a fish is a single unit that is part of a school.',
+      answerTime:20
+    },
+    {
+      section:'🔢 Pattern', icon:'🔢', type:'choice',
+      question:'What number comes next in this sequence?',
+      sequence:[1,1,2,3,5],
+      options:[7,8,9,10],
+      answer:8,
+      rule:'Fibonacci-style sequence',
+      explanation:'Each number is the sum of the two before it: 1+1=2, 1+2=3, 2+3=5, 3+5=8.',
+      answerTime:20
+    },
+    {
+      section:'🔷 Spatial', icon:'🔷', type:'choice',
+      question:'A letter L is positioned with its vertical line pointing up and its horizontal line pointing to the right. It is rotated 90 degrees clockwise. Which direction does the vertical line point now?',
+      options:['Up','Down','Left','Right'],
+      answer:'Right',
+      explanation:'Rotating the letter L 90 degrees clockwise makes its vertical line point to the right.',
+      hint:'Think about how you would rotate a flagpole on a flag that is extended to the side.',
+      answerTime:20
+    },
+    {
+      section:'➗ Math', icon:'➗', type:'math',
+      question:'Each row follows the same rule. What is the missing number?',
+      grid:[[1,2,3],[2,4,6],[null,8,12]],
+      answer:4,
+      options:[3,4,5,6],
+      rule:'Multiply the first number by 2 to get the second, then by 3 to get the third.',
+      explanation:'Row 1: 1×2=2, 1×3=3. Row 2: 2×2=4, 2×3=6. Row 3: ?×2=8, so ?=4.',
+      answerTime:25
+    },
+    {
+      section:'♟️ Strategy', icon:'♟️', type:'strategy',
+      question:'Put these steps in the correct order to wash a car:',
+      shuffled:['Dry the car with a towel','Rinse the car with water','Apply soap and scrub the car','Park the car in a shaded area'],
+      answer:['Park the car in a shaded area','Rinse the car with water','Apply soap and scrub the car','Dry the car with a towel'],
+      explanation:'Always park first to protect the paint, rinse off loose dirt, scrub with soap, then dry to avoid water spots.',
+      answerTime:35
+    },
+    {
+      section:'💡 Creativity', icon:'💡', type:'creativity',
+      riddle:'The more you take, the more you leave behind. What am I?',
+      answer:'Footsteps',
+      hint:'Think about what happens when you walk.',
+      explanation:'Every step you take removes a footstep from ahead of you but leaves one behind.',
+      wrongOptions:['Time','Memories','Shadows'],
+      answerTime:30
+    }
+  ]
+];
+
+// Pick a random day each time so no two playtests are the same
+const PUZZLES = ALL_DAYS[Math.floor(Math.random() * ALL_DAYS.length)];
+
+// ── STATE ────────────────────────────────────────────────────
+let currentIdx = 0;
+let scores = [];
+let results = [];
+let totalScore = 0;
+let timerInterval = null;
+let timerVal = 0;
+let startTime = null;
+let gameStartTime = null;
+
+// Memory state
+let memPhase = 'show'; // 'show' | 'answer'
+let memCountdown = 10;
+let memSelected = [];
+let memCountdownInterval = null;
+
+// Strategy state
+let dragSrc = null;
+let strategyOrder = [];
+
+// Creativity state
+let creativityPhase = 'type'; // 'type' | 'choice'
+
+// ── UTILS ────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function formatTime(s) {
+  return Math.floor(s/60)+':'+(s%60).toString().padStart(2,'0');
+}
+
+function speedBonus(elapsed) {
+  if(elapsed < 10) return 50;
+  if(elapsed < 20) return 30;
+  if(elapsed < 30) return 10;
+  return 0;
+}
+
+function updateDots() {
+  const d = document.getElementById('dots');
+  d.innerHTML = PUZZLES.map((_,i)=>{
+    let c='dot';
+    if(i<currentIdx) c+=' done';
+    if(i===currentIdx) c+=' active';
+    return `<div class="${c}"></div>`;
+  }).join('');
+}
+
+function updateScoreBadge() {
+  document.getElementById('scoreBadge').textContent = totalScore+' pts';
+}
+
+function startTimer(seconds, onEnd) {
+  clearInterval(timerInterval);
+  timerVal = seconds;
+  const el = document.getElementById('timer');
+  el.classList.remove('warn');
+  const tick = ()=>{
+    el.textContent = formatTime(timerVal);
+    if(timerVal<=10) el.classList.add('warn');
+    if(timerVal<=0){ clearInterval(timerInterval); if(onEnd) onEnd(); return; }
+    timerVal--;
+  };
+  tick();
+  timerInterval = setInterval(tick,1000);
+}
+
+function stopTimer() { clearInterval(timerInterval); }
+
+function elapsed() { return Math.floor((Date.now()-startTime)/1000); }
+
+// ── GAME FLOW ────────────────────────────────────────────────
+function startGame() {
+  currentIdx=0; scores=[]; results=[]; totalScore=0;
+  gameStartTime=Date.now();
+  showScreen('puzzle');
+  renderPuzzle(0);
+}
+
+function renderPuzzle(idx) {
+  updateDots();
+  updateScoreBadge();
+  startTime = Date.now();
+  const p = PUZZLES[idx];
+  const body = document.getElementById('puzzleBody');
+
+  if(p.type==='memory') renderMemory(p, body);
+  else if(p.type==='choice') renderChoice(p, body);
+  else if(p.type==='math') renderMath(p, body);
+  else if(p.type==='strategy') renderStrategy(p, body);
+  else if(p.type==='creativity') renderCreativity(p, body);
+}
+
+let autoAdvanceInterval = null;
+
+function nextPuzzle(scoreEarned, correct) {
+  clearInterval(autoAdvanceInterval);
+  stopTimer();
+  scores.push(scoreEarned);
+  results.push(correct);
+  totalScore += scoreEarned;
+  updateScoreBadge();
+  currentIdx++;
+  if(currentIdx >= PUZZLES.length) { showResults(); return; }
+  setTimeout(()=>renderPuzzle(currentIdx), 300);
+}
+
+function showAutoAdvance(pts, correct) {
+  clearInterval(autoAdvanceInterval);
+  let count = 3;
+  const autoDiv = '<div class="auto-next"><div class="auto-next-circle" id="autoCount">3</div><span>Next puzzle in 3 seconds...</span><button onclick="clearInterval(autoAdvanceInterval);nextPuzzle('+pts+','+correct+')" style="margin-left:auto;padding:8px 16px;background:var(--ink);color:white;border:none;border-radius:10px;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">Next →</button></div>';
+  const rev = document.getElementById('reveal');
+  if(rev) rev.insertAdjacentHTML('afterend', autoDiv);
+  autoAdvanceInterval = setInterval(()=>{
+    count--;
+    const el = document.getElementById('autoCount');
+    if(el) el.textContent = count;
+    if(count <= 0) {
+      clearInterval(autoAdvanceInterval);
+      nextPuzzle(pts, correct);
+    }
+  }, 1000);
+}
+
+function showSkip() {
+  nextPuzzle(0, false);
+}
+
+// ── RENDER CHOICE ────────────────────────────────────────────
+function renderChoice(p, body) {
+  let html = `<div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>`;
+
+  if(p.clues) {
+    html += `<div class="puzzle-q">${p.scenario}</div>`;
+    html += `<div class="clues">${p.clues.map((c,i)=>`<div class="clue"><span class="clue-n">${i+1}</span>${c}</div>`).join('')}</div>`;
+  } else if(p.sequence) {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+    html += `<div class="seq-row">${p.sequence.map(n=>`<div class="seq-n">${n}</div><div class="seq-arr">›</div>`).join('')}<div class="seq-n unknown">?</div></div>`;
+    if(p.rule) html += `<div class="puzzle-sub">Find the rule...</div>`;
+  } else {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+  }
+
+  if(p.hint) html += `<div class="hint-box">💡 Hint: ${p.hint}</div>`;
+
+  html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${o}')">${o}</button>`).join('')}</div>`;
+  html += `<div id="reveal"></div>`;
+  html += `<button class="skip-btn" onclick="showSkip()">Skip (1 free skip remaining)</button>`;
+
+  body.innerHTML = html;
+  startTimer(p.answerTime, ()=>autoFail(p));
+}
+
+function choiceAnswer(btn, chosen) {
+  stopTimer();
+  const p = PUZZLES[currentIdx];
+  const correct = String(chosen) === String(p.answer);
+  const e = elapsed();
+  const bonus = correct ? speedBonus(e) : 0;
+  const pts = correct ? 100+bonus : 0;
+
+  document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  btn.classList.add(correct?'correct':'wrong');
+
+  if(!correct) {
+    document.querySelectorAll('.opt').forEach(b=>{
+      if(String(b.textContent.trim())===String(p.answer)) b.classList.add('correct');
+    });
+  }
+
+  const rev = document.getElementById('reveal');
+  rev.innerHTML = `<div class="reveal ${correct?'':'wrong-reveal'}">
+    ${!correct?`<div class="reveal-wrong">❌ You picked: ${chosen}</div>`:''}
+    <div class="reveal-correct">${correct?'✅ Correct!':'✅ Correct answer: '+p.answer}</div>
+    ${correct&&bonus?`<div class="reveal-correct">⚡ Speed bonus: +${bonus} pts</div>`:''}
+    <div class="reveal-explain">${p.explanation}</div>
+  </div>
+  <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,correct);
+}
+
+// ── RENDER MATH ──────────────────────────────────────────────
+function renderMath(p, body) {
+  let html = `<div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>`;
+  html += `<div class="puzzle-q">${p.question}</div>`;
+  html += `<div class="math-grid">`;
+  p.grid.forEach(row=>{
+    row.forEach(cell=>{
+      if(cell===null) html+=`<div class="math-cell missing">?</div>`;
+      else html+=`<div class="math-cell">${cell}</div>`;
+    });
+  });
+  html += `</div>`;
+  html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${o}')">${o}</button>`).join('')}</div>`;
+  html += `<div id="reveal"></div>`;
+  html += `<button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  body.innerHTML = html;
+  startTimer(p.answerTime, ()=>autoFail(p));
+}
+
+// ── RENDER MEMORY ────────────────────────────────────────────
+function renderMemory(p, body) {
+  memPhase = 'show';
+  memSelected = [];
+  memCountdown = 10;
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · 1 of 8</div>
+    <div class="puzzle-q">Remember this sequence!</div>
+    <div class="mem-phase" id="memPhaseBox">
+      <h4>Memorize the order — ${memCountdown} seconds</h4>
+      <div class="mem-countdown" id="memCD">10</div>
+      <div class="mem-seq" id="memSeq">
+        ${p.sequence.map(e=>`<div class="mem-item">${e}</div>`).join('')}
+      </div>
+    </div>
+    <div class="hint-box">💡 Hint: ${p.hint}</div>
+    <div id="reveal"></div>`;
+
+  document.getElementById('timer').textContent = '0:10';
+  document.getElementById('timer').classList.remove('warn');
+
+  memCountdownInterval = setInterval(()=>{
+    memCountdown--;
+    const cd = document.getElementById('memCD');
+    if(cd) cd.textContent = memCountdown;
+    const t = document.getElementById('timer');
+    if(t) { t.textContent = formatTime(memCountdown); if(memCountdown<=3) t.classList.add('warn'); }
+    if(memCountdown <= 0) {
+      clearInterval(memCountdownInterval);
+      showMemoryAnswer(p, body);
+    }
+  }, 1000);
+}
+
+function showMemoryAnswer(p, body) {
+  memPhase = 'answer';
+  memSelected = [];
+  const allItems = [...p.sequence, ...p.decoys];
+  const shuffled = allItems.sort(()=>Math.random()-0.5);
+
+  const phaseBox = document.getElementById('memPhaseBox');
+  if(phaseBox) {
+    phaseBox.innerHTML = `
+      <h4>Tap the sequence in the correct order</h4>
+      <div class="mem-selected-row" id="memSelectedRow">
+        <span style="color:var(--border);font-size:13px">Tap items below in order...</span>
+      </div>
+      <div class="mem-grid" id="memTapGrid">
+        ${shuffled.map(e=>`<button class="mem-tap" onclick="memTap(this,'${e}')">${e}</button>`).join('')}
+      </div>
+      <div class="mem-actions">
+        <button class="btn-next" style="background:var(--border);color:var(--ink);flex:1" onclick="memClear()">Clear</button>
+      </div>`;
+  }
+
+  startTime = Date.now();
+  startTimer(35, ()=>{
+    memCheckAnswer(p, false);
+  });
+}
+
+function memTap(btn, emoji) {
+  if(btn.classList.contains('selected')) return;
+  const p = PUZZLES[0];
+  memSelected.push(emoji);
+  btn.classList.add('selected');
+
+  const row = document.getElementById('memSelectedRow');
+  if(row) {
+    row.innerHTML = memSelected.map(e=>`<div class="mem-selected-item">${e}</div>`).join('');
+  }
+
+  if(memSelected.length === p.sequence.length) {
+    setTimeout(()=>memCheckAnswer(p, true), 300);
+  }
+}
+
+function memClear() {
+  memSelected = [];
+  document.querySelectorAll('.mem-tap').forEach(b=>b.classList.remove('selected'));
+  const row = document.getElementById('memSelectedRow');
+  if(row) row.innerHTML = `<span style="color:var(--border);font-size:13px">Tap items below in order...</span>`;
+}
+
+function memCheckAnswer(p, submitted) {
+  stopTimer();
+  const correct = JSON.stringify(memSelected) === JSON.stringify(p.answer);
+  const e = elapsed();
+  const pts = correct ? 100+speedBonus(e) : (memSelected.length>0 && memSelected.slice(0,3).join()===p.answer.slice(0,3).join() ? 50 : 0);
+
+  const rev = document.getElementById('reveal');
+  if(rev) {
+    rev.innerHTML = `<div class="reveal ${correct?'':'wrong-reveal'}">
+      ${!correct?`<div class="reveal-wrong">❌ Your order: ${memSelected.join(' ')}</div>`:''}
+      <div class="reveal-correct">${correct?'✅ Correct!':'✅ Correct sequence: '+p.answer.join(' ')}</div>
+      <div class="reveal-explain">The sequence was: ${p.answer.join(' → ')}</div>
+    </div>
+    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,correct);
+  }
+}
+
+// ── RENDER STRATEGY ──────────────────────────────────────────
+function renderStrategy(p, body) {
+  strategyOrder = [...p.shuffled];
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="puzzle-sub">Drag to reorder the steps</div>
+    <div class="drag-list" id="dragList">${renderDragItems()}</div>
+    <button class="btn-submit" onclick="checkStrategy()">Check My Order</button>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+
+  startTimer(p.answerTime, ()=>checkStrategy(true));
+  setupDrag();
+}
+
+function renderDragItems() {
+  return strategyOrder.map((s,i)=>`
+    <div class="drag-item" draggable="true" data-idx="${i}">
+      <span class="drag-handle">⠿</span>
+      <span class="drag-num">${i+1}</span>
+      <span>${s}</span>
+    </div>`).join('');
+}
+
+function setupDrag() {
+  setTimeout(()=>{
+    const list = document.getElementById('dragList');
+    if(!list) return;
+    list.querySelectorAll('.drag-item').forEach(item=>{
+      item.addEventListener('dragstart',e=>{ dragSrc=item; item.classList.add('dragging'); });
+      item.addEventListener('dragend',()=>{ item.classList.remove('dragging'); document.querySelectorAll('.drag-item').forEach(i=>i.classList.remove('drag-over')); });
+      item.addEventListener('dragover',e=>{ e.preventDefault(); item.classList.add('drag-over'); });
+      item.addEventListener('dragleave',()=>item.classList.remove('drag-over'));
+      item.addEventListener('drop',e=>{
+        e.preventDefault();
+        if(dragSrc===item) return;
+        const from=parseInt(dragSrc.dataset.idx);
+        const to=parseInt(item.dataset.idx);
+        const moved=strategyOrder.splice(from,1)[0];
+        strategyOrder.splice(to,0,moved);
+        const list=document.getElementById('dragList');
+        if(list){ list.innerHTML=renderDragItems(); setupDrag(); }
+      });
+    });
+  },50);
+}
+
+function checkStrategy(auto) {
+  stopTimer();
+  const p = PUZZLES[currentIdx];
+  const correct = JSON.stringify(strategyOrder)===JSON.stringify(p.answer);
+  const e = elapsed();
+  const pts = correct ? 100+speedBonus(e) : 0;
+
+  const list = document.getElementById('dragList');
+  if(list) {
+    list.querySelectorAll('.drag-item').forEach((item,i)=>{
+      item.classList.add(strategyOrder[i]===p.answer[i]?'correct-order':'wrong-order');
+    });
+  }
+
+  const btn = document.querySelector('.btn-submit');
+  if(btn) btn.style.display='none';
+
+  const rev = document.getElementById('reveal');
+  if(rev) {
+    rev.innerHTML = `<div class="reveal ${correct?'':'wrong-reveal'}">
+      ${!correct?`<div class="reveal-wrong">❌ Not quite — check the highlighted steps</div>`:''}
+      <div class="reveal-correct">${correct?'✅ Perfect order!':'✅ Correct order shown below'}</div>
+      <div class="reveal-explain">${p.explanation}</div>
+    </div>
+    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,correct);
+  }
+}
+
+// ── RENDER CREATIVITY ────────────────────────────────────────
+function renderCreativity(p, body) {
+  creativityPhase = 'type';
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q" style="font-size:18px;font-style:italic">"${p.riddle}"</div>
+    <div class="type-box">
+      <input class="type-input" id="typeInput" placeholder="Type your answer..." autocomplete="off" />
+      <div class="type-hint">💡 ${p.hint}</div>
+    </div>
+    <button class="btn-submit" onclick="checkCreativity()">Submit Answer</button>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+
+  const inp = document.getElementById('typeInput');
+  if(inp) inp.addEventListener('keydown',e=>{ if(e.key==='Enter') checkCreativity(); });
+
+  startTimer(p.answerTime, ()=>showCreativityOptions(p, null));
+}
+
+function checkCreativity() {
+  const p = PUZZLES[currentIdx];
+  const inp = document.getElementById('typeInput');
+  const typed = inp ? inp.value.trim().toLowerCase() : '';
+  const correct = typed === p.answer.toLowerCase() || typed === p.answer.toLowerCase().replace('a ','');
+
+  if(correct) {
+    stopTimer();
+    const e = elapsed();
+    const pts = 100+speedBonus(e);
+    const rev = document.getElementById('reveal');
+    if(rev) rev.innerHTML = `<div class="reveal">
+      <div class="reveal-correct">✅ Correct! "${p.answer}"</div>
+      <div class="reveal-explain">${p.explanation}</div>
+    </div>
+    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,true);
+    const btn = document.querySelector('.btn-submit');
+    if(btn) btn.style.display='none';
+  } else {
+    showCreativityOptions(p, typed);
+  }
+}
+
+function showCreativityOptions(p, typed) {
+  stopTimer();
+  creativityPhase = 'choice';
+  const allOpts = [p.answer, ...p.wrongOptions].sort(()=>Math.random()-0.5);
+
+  const typeBox = document.querySelector('.type-box');
+  if(typeBox) typeBox.style.display='none';
+  const btn = document.querySelector('.btn-submit');
+  if(btn) btn.style.display='none';
+
+  const rev = document.getElementById('reveal');
+  if(rev) {
+    rev.innerHTML = `
+      <div class="reveal wrong-reveal">
+        ${typed?`<div class="reveal-wrong">❌ "${typed}" isn't quite right</div>`:''}
+        <div class="reveal-correct" style="color:var(--ink-light)">Pick from these options — partial credit if correct:</div>
+      </div>
+      <div class="options single-col" id="optGrid">
+        ${allOpts.map(o=>`<button class="opt" onclick="creativityChoice(this,'${o.replace(/'/g,"\\'")}','${p.answer.replace(/'/g,"\\'")}')">${o}</button>`).join('')}
+      </div>`;
+  }
+  startTimer(20, ()=>nextPuzzle(0,false));
+}
+
+function creativityChoice(btn, chosen, answer) {
+  stopTimer();
+  const correct = chosen === answer;
+  const pts = correct ? 50 : 0;
+  document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  btn.classList.add(correct?'correct':'wrong');
+  if(!correct) document.querySelectorAll('.opt').forEach(b=>{ if(b.textContent.trim()===answer) b.classList.add('correct'); });
+
+  const p = PUZZLES[currentIdx];
+  const existing = document.querySelector('.reveal');
+  if(existing) {
+    existing.insertAdjacentHTML('afterend',`
+      <div class="reveal ${correct?'':'wrong-reveal'}">
+        <div class="reveal-correct">${correct?'✅ Correct! (50 pts — partial credit)':'✅ Correct answer: '+answer}</div>
+        <div class="reveal-explain">${p.explanation}</div>
+      </div>
+      <button class="btn-next" style="display:none"></button>`); showAutoAdvance(pts,correct);
+  }
+}
+
+function autoFail(p) {
+  const rev = document.getElementById('reveal');
+  if(rev && !rev.innerHTML) {
+    rev.innerHTML = `<div class="reveal wrong-reveal">
+      <div class="reveal-wrong">⏱️ Time's up!</div>
+      <div class="reveal-correct">✅ Correct answer: ${Array.isArray(p.answer)?p.answer.join(' → '):p.answer}</div>
+      <div class="reveal-explain">${p.explanation||''}</div>
+    </div>
+    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(0,false);
+    document.querySelectorAll('.opt,.btn-submit').forEach(b=>b.disabled=true);
+  }
+}
+
+// ── RESULTS ──────────────────────────────────────────────────
+function showResults() {
+  const solved = results.filter(Boolean).length;
+  const totalTime = Math.floor((Date.now()-gameStartTime)/1000);
+  const pct = Math.min(95, Math.floor(40+Math.random()*40));
+
+  document.getElementById('resEmoji').textContent = solved>=6?'🎉':solved>=4?'🧠':'😅';
+  document.getElementById('resTitle').textContent = solved>=6?'Escaped!':solved>=4?'Well done!':'Keep trying!';
+  document.getElementById('resSub').textContent = `You solved ${solved}/8 puzzles today`;
+  document.getElementById('resBigScore').innerHTML = `${totalScore}<span>/1200</span>`;
+  document.getElementById('resSolved').textContent = `${solved}/8`;
+  document.getElementById('resTime').textContent = formatTime(totalTime);
+  document.getElementById('resEmojis').textContent = PUZZLES.map((p,i)=>p.icon+(results[i]?'✅':'❌')).join(' ');
+  document.getElementById('resPct').textContent = `Better than ${pct}% of players today`;
+  document.getElementById('resBar').style.width = pct+'%';
+
+  document.getElementById('answersSummaryContainer').innerHTML = buildAnswersSummary(); showScreen('results');
+}
+
+
+function buildAnswersSummary() {
+  const rows = PUZZLES.map((p,i) => {
+    const ans = Array.isArray(p.answer) ? p.answer.join(' then ') : p.answer;
+    const icon = results[i] ? 'check' : 'cross';
+    return '<div class="answer-row">' +
+      '<span class="answer-icon">' + p.icon + '</span>' +
+      '<div class="answer-content">' +
+        '<div class="answer-section-lbl">' + p.section.replace(/[^a-zA-Z\s]/g,'').trim() + '</div>' +
+        '<div class="answer-val">' + ans + '</div>' +
+        (p.explanation ? '<div class="answer-explain">' + p.explanation + '</div>' : '') +
+      '</div>' +
+      '<span style="font-size:16px;flex-shrink:0">' + (results[i] ? '\u2705' : '\u274C') + '</span>' +
+    '</div>';
+  }).join('');
+  return '<div class="answers-summary"><div class="answers-sum-title">\uD83D\uDCDA All Correct Answers</div>' + rows + '</div>';
+}
+
+function shareResult() {
+  const solved = results.filter(Boolean).length;
+  const text = `🧠 Brain Escape — March 17\n${PUZZLES.map((p,i)=>p.icon+(results[i]?'✅':'❌')).join(' ')}\n\nScore: ${totalScore}/1,200\n🔥 Streak: 1 day\n\nbrainescape.com`;
+  if(navigator.share) navigator.share({text});
+  else { navigator.clipboard.writeText(text); alert('Result copied to clipboard!'); }
+}
+</script>
+</body>
+</html>
