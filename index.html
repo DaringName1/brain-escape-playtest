@@ -175,6 +175,31 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .btn-share:hover { background:#e5422a; }
 .btn-again { width:100%; padding:14px; background:var(--white); color:var(--ink); border:2px solid var(--border); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; }
 .btn-again:hover { border-color:var(--ink); }
+.share-card-shell { background:linear-gradient(180deg,#F9F7F2 0%, #F4EFE6 100%); border-radius:28px; padding:18px; border:1px solid var(--border); box-shadow:var(--shadow-lg); margin-bottom:18px; }
+.share-card { aspect-ratio:1 / 1; background:var(--white); border-radius:26px; border:1px solid #EAE4DB; box-shadow:0 10px 32px rgba(26,26,46,0.08); padding:26px; display:flex; flex-direction:column; text-align:left; }
+.share-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:24px; }
+.share-brand { min-width:0; }
+.share-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; letter-spacing:-0.8px; margin-bottom:4px; }
+.share-date { font-size:13px; color:var(--ink-light); }
+.share-streak { text-align:right; flex-shrink:0; }
+.share-streak-label { font-size:12px; color:var(--ink-light); margin-bottom:4px; }
+.share-streak-value { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; }
+.share-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 10px; margin-bottom:24px; }
+.share-grid-item { text-align:center; }
+.share-grid-icon { font-size:24px; margin-bottom:6px; display:block; }
+.share-grid-label { font-size:11px; font-weight:600; line-height:1.2; min-height:26px; }
+.share-grid-status { font-size:22px; line-height:1; margin-top:6px; display:block; }
+.share-grid-status.ok { color:#6B8F3E; }
+.share-grid-status.no { color:#C56A7A; }
+.share-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:16px 0; border-top:1px solid #EFE8DE; border-bottom:1px solid #EFE8DE; margin-bottom:18px; }
+.share-stat-label { font-size:12px; color:var(--ink-light); margin-bottom:4px; }
+.share-stat-value { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; line-height:1.1; }
+.share-stat-sub { font-size:12px; color:var(--ink-light); margin-top:2px; }
+.share-percent-row { display:flex; justify-content:space-between; gap:10px; font-size:13px; font-weight:600; margin-bottom:8px; }
+.share-top-rank { color:var(--ink); }
+.share-bar-track { height:10px; background:#E8E2D7; border-radius:999px; overflow:hidden; margin-bottom:16px; }
+.share-bar-fill { height:100%; background:linear-gradient(90deg,var(--accent2),#3559D8); border-radius:999px; }
+.share-footer { margin-top:auto; padding-top:16px; border-top:1px solid #EFE8DE; text-align:center; font-size:13px; color:var(--ink-light); }
 
 
 /* ── AUTH SCREEN ── */
@@ -240,6 +265,19 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   .answer-section-lbl { font-size:11px; }
   .answer-val { font-size:15px; line-height:1.35; }
   .btn-share, .btn-again { font-size:16px; }
+  .share-card-shell { padding:12px; border-radius:22px; }
+  .share-card { padding:18px; border-radius:20px; }
+  .share-card-head { margin-bottom:18px; }
+  .share-title { font-size:18px; }
+  .share-date, .share-percent-row, .share-footer { font-size:12px; }
+  .share-grid { gap:12px 8px; margin-bottom:18px; }
+  .share-grid-icon { font-size:22px; }
+  .share-grid-label { font-size:10px; min-height:24px; }
+  .share-grid-status { font-size:20px; }
+  .share-stats { gap:8px; margin-bottom:14px; }
+  .share-stat-value { font-size:16px; }
+  .share-stat-sub, .share-stat-label, .share-streak-label { font-size:11px; }
+  .share-streak-value { font-size:14px; }
 }
 </style>
 </head>
@@ -326,6 +364,7 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       <div class="bar-track"><div class="bar-fill" id="resBar" style="width:0%"></div></div>
       <div class="bar-sub">Be the first to share your result!</div>
     </div>
+    <div id="shareCardContainer"></div>
     <div id="answersSummaryContainer"></div><button class="btn-share" onclick="shareResult()">📤 Share Result Card</button>
     <button class="btn-again" onclick="showScreen('home')">← Back to Home</button>
   </div>
@@ -1044,6 +1083,65 @@ function autoFail(p) {
 }
 
 // ── RESULTS ──────────────────────────────────────────────────
+function getShareStreakText() {
+  return currentUser ? 'Soon' : '-';
+}
+
+function formatShareTopPercentile(pct) {
+  return `Top ${Math.max(5, 100 - pct)}%`;
+}
+
+function buildShareCard(solved, totalTime, pct) {
+  const sectionGrid = PUZZLES.map((p, i) => `
+    <div class="share-grid-item">
+      <span class="share-grid-icon">${p.icon}</span>
+      <div class="share-grid-label">${p.section.replace(/[^a-zA-Z\s]/g,'').trim()}</div>
+      <span class="share-grid-status ${results[i] ? 'ok' : 'no'}">${results[i] ? '✓' : '✕'}</span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="share-card-shell">
+      <div class="share-card">
+        <div class="share-card-head">
+          <div class="share-brand">
+            <div class="share-title">Brain Escape</div>
+            <div class="share-date">${formatDisplayDate()} · Daily Challenge</div>
+          </div>
+          <div class="share-streak">
+            <div class="share-streak-label">Streak</div>
+            <div class="share-streak-value">${getShareStreakText()}</div>
+          </div>
+        </div>
+        <div class="share-grid">${sectionGrid}</div>
+        <div class="share-stats">
+          <div>
+            <div class="share-stat-label">Score</div>
+            <div class="share-stat-value">${totalScore.toLocaleString()}</div>
+            <div class="share-stat-sub">/ 1,200</div>
+          </div>
+          <div>
+            <div class="share-stat-label">Solved</div>
+            <div class="share-stat-value">${solved}/8</div>
+            <div class="share-stat-sub">puzzles</div>
+          </div>
+          <div>
+            <div class="share-stat-label">Time</div>
+            <div class="share-stat-value">${formatTime(totalTime)}</div>
+            <div class="share-stat-sub">minutes</div>
+          </div>
+        </div>
+        <div class="share-percent-row">
+          <span>Better than ${pct}% of players today</span>
+          <span class="share-top-rank">${formatShareTopPercentile(pct)}</span>
+        </div>
+        <div class="share-bar-track"><div class="share-bar-fill" style="width:${pct}%"></div></div>
+        <div class="share-footer">brainescape.com · Play the daily challenge</div>
+      </div>
+    </div>
+  `;
+}
+
 function showResults() {
   const solved = results.filter(Boolean).length;
   const totalTime = Math.floor((Date.now()-gameStartTime)/1000);
@@ -1055,11 +1153,12 @@ function showResults() {
   document.getElementById('resBigScore').innerHTML = `${totalScore}<span>/1200</span>`;
   document.getElementById('resSolved').textContent = `${solved}/8`;
   document.getElementById('resTime').textContent = formatTime(totalTime);
-  document.getElementById('resStreak').textContent = currentUser ? 'Soon' : '-';
+  document.getElementById('resStreak').textContent = getShareStreakText();
   document.getElementById('resEmojis').textContent = PUZZLES.map((p,i)=>p.icon+(results[i]?'✅':'❌')).join(' ');
   document.getElementById('resPct').textContent = `Better than ${pct}% of players today`;
   document.getElementById('resBar').style.width = pct+'%';
 
+  document.getElementById('shareCardContainer').innerHTML = buildShareCard(solved, totalTime, pct);
   document.getElementById('answersSummaryContainer').innerHTML = buildAnswersSummary(); showScreen('results');
 }
 
@@ -1071,7 +1170,7 @@ function buildAnswersSummary() {
     return '<div class="answer-row">' +
       '<span class="answer-icon">' + p.icon + '</span>' +
       '<div class="answer-content">' +
-        '<div class="answer-section-lbl">' + p.section.replace(/[^a-zA-Z\s]/g,'').trim() + '</div>' +
+        '<div class="answer-section-lbl">' + p.section.replace(/[^a-zA-Zs]/g,'').trim() + '</div>' +
         '<div class="answer-val">' + ans + '</div>' +
         (p.explanation ? '<div class="answer-explain">' + p.explanation + '</div>' : '') +
       '</div>' +
