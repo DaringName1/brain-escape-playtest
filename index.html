@@ -379,7 +379,7 @@ const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 let PUZZLES = [];
 
 async function loadPuzzlesFromSupabase() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const url = `${SUPABASE_URL}/rest/v1/puzzles?puzzle_date=eq.${today}&is_active=eq.true&order=brain_section`;
   
   try {
@@ -458,7 +458,7 @@ function showLoadError(msg) {
       <div style="font-size:14px;color:var(--ink-light);margin-bottom:24px">${msg}</div>
       <div style="background:var(--white);border-radius:14px;padding:16px;border:1px solid var(--border);font-size:13px;text-align:left">
         Run this in your terminal:<br><br>
-        <code style="background:var(--cream);padding:4px 8px;border-radius:6px">node generate-puzzles.js</code>
+        <code style="background:var(--cream);padding:4px 8px;border-radius:6px">node generate-smart.js</code>
       </div>
     </div>`;
 }
@@ -486,6 +486,13 @@ let strategyOrder = [];
 
 // Creativity state
 let creativityPhase = 'type'; // 'type' | 'choice'
+
+function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 // ── UTILS ────────────────────────────────────────────────────
 function showScreen(id) {
@@ -736,7 +743,7 @@ function showMemoryAnswer(p, body) {
 
 function memTap(btn, emoji) {
   if(btn.classList.contains('selected')) return;
-  const p = PUZZLES[0];
+  const p = PUZZLES[currentIdx];
   memSelected.push(emoji);
   btn.classList.add('selected');
 
@@ -1014,10 +1021,11 @@ function scheduleMidnightRefresh() {
 
 // Also check every minute if the date has changed
 // (handles cases where device was asleep over midnight)
-let lastCheckedDate = new Date().toISOString().split('T')[0];
+let lastCheckedDate = getLocalDateString();
 setInterval(() => {
-  const currentDate = new Date().toISOString().split('T')[0];
+  const currentDate = getLocalDateString();
   if (currentDate !== lastCheckedDate) {
+    lastCheckedDate = currentDate;
     console.log('Date changed — reloading for new puzzles');
     window.location.reload();
   }
