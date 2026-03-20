@@ -224,7 +224,7 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   <div id="userPill" class="user-pill" style="display:none" onclick="signOut()">👤 Sign out</div><div class="logo">🧠 Brain<span>Escape</span></div>
   <div class="logo-sub">Daily Mental Challenge</div>
   <div class="home-card">
-    <h3>March 17, 2026</h3>
+    <h3 id="homeDate">Today's Challenge</h3>
     <p>8 puzzles · ~6 minutes · Difficulty: Easy</p>
     <div class="puzzle-chips">
       <div class="chip"><span class="ci">🧩</span><span class="cl">Memory</span></div>
@@ -238,8 +238,8 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
     </div>
     <div class="streak-pill">
       <span>🔥 Current streak</span>
-      <span class="streak-num">1</span>
-      <span>day</span>
+      <span class="streak-num" id="homeStreakNum">-</span>
+      <span id="homeStreakLabel">sign in to track</span>
     </div>
   </div>
   <button class="btn-start" onclick="startGame()">Start Today's Challenge</button>
@@ -295,6 +295,7 @@ async function initAuth() {
     currentUser = session.user;
     showScreen('home');
     updateUserPill();
+    updateHomeDisplay();
     return;
   }
   
@@ -304,6 +305,7 @@ async function initAuth() {
       currentUser = session.user;
       showScreen('home');
       updateUserPill();
+      updateHomeDisplay();
     }
   });
   
@@ -344,6 +346,7 @@ async function sendMagicLink() {
 function continueAsGuest() {
   currentUser = null;
   showScreen('home');
+  updateHomeDisplay();
 }
 
 function showAuthMsg(msg) {
@@ -369,6 +372,7 @@ function updateUserPill() {
 async function signOut() {
   await supabaseClient.auth.signOut();
   currentUser = null;
+  updateHomeDisplay();
   showScreen('auth');
 }
 
@@ -437,11 +441,7 @@ async function loadPuzzlesFromSupabase() {
     }).filter(Boolean);
     
     // Update the date shown on home screen
-    const dateEl = document.querySelector('.home-card h3');
-    if(dateEl) {
-      const d = new Date();
-      dateEl.textContent = d.toLocaleDateString('en-US', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-    }
+    updateHomeDisplay();
     
     return true;
   } catch(err) {
@@ -492,6 +492,27 @@ function getLocalDateString(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function formatDisplayDate(date = new Date()) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+}
+
+function updateHomeDisplay() {
+  const dateEl = document.getElementById('homeDate');
+  if (dateEl) dateEl.textContent = formatDisplayDate();
+
+  const streakNumEl = document.getElementById('homeStreakNum');
+  const streakLabelEl = document.getElementById('homeStreakLabel');
+  if (streakNumEl && streakLabelEl) {
+    streakNumEl.textContent = '-';
+    streakLabelEl.textContent = currentUser ? 'streaks coming soon' : 'sign in to track';
+  }
 }
 
 // ── UTILS ────────────────────────────────────────────────────
@@ -998,7 +1019,7 @@ function buildAnswersSummary() {
 
 function shareResult() {
   const solved = results.filter(Boolean).length;
-  const text = `🧠 Brain Escape — March 17\n${PUZZLES.map((p,i)=>p.icon+(results[i]?'✅':'❌')).join(' ')}\n\nScore: ${totalScore}/1,200\n🔥 Streak: 1 day\n\nbrainescape.com`;
+  const text = `Brain Escape - ${formatDisplayDate()}\n${PUZZLES.map((p,i)=>p.icon+(results[i] ? '?' : '?')).join(' ')}\n\nScore: ${totalScore}/1,200\nSolved: ${solved}/8\n\nbrainescape.com`;
   if(navigator.share) navigator.share({text});
   else { navigator.clipboard.writeText(text); alert('Result copied to clipboard!'); }
 }
@@ -1032,7 +1053,7 @@ setInterval(() => {
 }, 60000); // check every 60 seconds
 
 // Init auth on page load
-window.addEventListener('load', () => { initAuth(); scheduleMidnightRefresh(); });
+window.addEventListener('load', () => { updateHomeDisplay(); initAuth(); scheduleMidnightRefresh(); });
 </script>
 </body>
 </html>
