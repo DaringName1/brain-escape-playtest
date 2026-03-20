@@ -219,6 +219,27 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   .drag-handle { display:none; }
   .drag-controls { gap:8px; }
   .drag-move { width:42px; height:42px; }
+  #results { padding:24px 16px; }
+  .results-inner { max-width:100%; }
+  .big-emoji { font-size:52px; margin-bottom:10px; }
+  .results-title { font-size:30px; }
+  .results-sub { font-size:16px; margin-bottom:22px; line-height:1.45; }
+  .score-card { padding:20px 18px; border-radius:18px; }
+  .big-score { font-size:50px; letter-spacing:-2px; }
+  .score-lbl, .bar-sub, .answer-explain { font-size:13px; }
+  .emoji-row { font-size:20px; line-height:1.5; }
+  .stat-grid { grid-template-columns:1fr; gap:14px; }
+  .stat-item { padding-top:12px; border-top:1px solid var(--border); }
+  .stat-item:first-child { padding-top:0; border-top:none; }
+  .stat-val { font-size:24px; }
+  .stat-lbl { font-size:12px; }
+  .pct-bar { padding:16px; }
+  .pct-bar p { font-size:15px; line-height:1.4; }
+  .answers-sum-title { font-size:15px; }
+  .answer-row { padding:14px; }
+  .answer-section-lbl { font-size:11px; }
+  .answer-val { font-size:15px; line-height:1.35; }
+  .btn-share, .btn-again { font-size:16px; }
 }
 </style>
 </head>
@@ -297,7 +318,7 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       <div class="stat-grid">
         <div class="stat-item"><div class="stat-val" id="resSolved">0/8</div><div class="stat-lbl">Solved</div></div>
         <div class="stat-item"><div class="stat-val" id="resTime">0:00</div><div class="stat-lbl">Time</div></div>
-        <div class="stat-item"><div class="stat-val">🔥 1</div><div class="stat-lbl">Streak</div></div>
+        <div class="stat-item"><div class="stat-val" id="resStreak">-</div><div class="stat-lbl">Streak</div></div>
       </div>
     </div>
     <div class="pct-bar">
@@ -1034,6 +1055,7 @@ function showResults() {
   document.getElementById('resBigScore').innerHTML = `${totalScore}<span>/1200</span>`;
   document.getElementById('resSolved').textContent = `${solved}/8`;
   document.getElementById('resTime').textContent = formatTime(totalTime);
+  document.getElementById('resStreak').textContent = currentUser ? 'Soon' : '-';
   document.getElementById('resEmojis').textContent = PUZZLES.map((p,i)=>p.icon+(results[i]?'✅':'❌')).join(' ');
   document.getElementById('resPct').textContent = `Better than ${pct}% of players today`;
   document.getElementById('resBar').style.width = pct+'%';
