@@ -562,6 +562,7 @@ let timerInterval = null;
 let timerVal = 0;
 let startTime = null;
 let gameStartTime = null;
+let lastResultSummary = null;
 
 // Memory state
 let memPhase = 'show'; // 'show' | 'answer'
@@ -1083,6 +1084,10 @@ function autoFail(p) {
 }
 
 // ── RESULTS ──────────────────────────────────────────────────
+const SHARE_SITE_URL = 'https://brain-escape-playtest.vercel.app/';
+const SHARE_OK = '\u2713';
+const SHARE_NO = '\u2715';
+
 function getShareStreakText() {
   return currentUser ? 'Soon' : '-';
 }
@@ -1096,7 +1101,7 @@ function buildShareCard(solved, totalTime, pct) {
     <div class="share-grid-item">
       <span class="share-grid-icon">${p.icon}</span>
       <div class="share-grid-label">${p.section.replace(/[^a-zA-Z\s]/g,'').trim()}</div>
-      <span class="share-grid-status ${results[i] ? 'ok' : 'no'}">${results[i] ? '✓' : '✕'}</span>
+      <span class="share-grid-status ${results[i] ? 'ok' : 'no'}">${results[i] ? SHARE_OK : SHARE_NO}</span>
     </div>
   `).join('');
 
@@ -1106,7 +1111,7 @@ function buildShareCard(solved, totalTime, pct) {
         <div class="share-card-head">
           <div class="share-brand">
             <div class="share-title">Brain Escape</div>
-            <div class="share-date">${formatDisplayDate()} · Daily Challenge</div>
+            <div class="share-date">${formatDisplayDate()} - Daily Challenge</div>
           </div>
           <div class="share-streak">
             <div class="share-streak-label">Streak</div>
@@ -1136,16 +1141,109 @@ function buildShareCard(solved, totalTime, pct) {
           <span class="share-top-rank">${formatShareTopPercentile(pct)}</span>
         </div>
         <div class="share-bar-track"><div class="share-bar-fill" style="width:${pct}%"></div></div>
-        <div class="share-footer">brainescape.com · Play the daily challenge</div>
+        <div class="share-footer">${SHARE_SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, '')} - Play the daily challenge</div>
       </div>
     </div>
   `;
+}
+
+function escapeSvgText(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildShareCardSvg(solved, totalTime, pct) {
+  const sections = PUZZLES.map((p, i) => ({
+    icon: p.icon,
+    label: p.section.replace(/[^a-zA-Z\s]/g, '').trim(),
+    status: results[i] ? SHARE_OK : SHARE_NO,
+    statusColor: results[i] ? '#6B8F3E' : '#C56A7A',
+  }));
+
+  const sectionNodes = sections.map((section, i) => {
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    const x = 200 + col * 170;
+    const y = 255 + row * 135;
+    return `
+      <text x="${x}" y="${y}" text-anchor="middle" font-size="34">${escapeSvgText(section.icon)}</text>
+      <text x="${x}" y="${y + 34}" text-anchor="middle" font-size="18" font-weight="600" fill="#1A1A2E">${escapeSvgText(section.label)}</text>
+      <text x="${x}" y="${y + 74}" text-anchor="middle" font-size="34" font-weight="700" fill="${section.statusColor}">${section.status}</text>
+    `;
+  }).join('');
+
+  return `
+    <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+      <rect width="1080" height="1080" fill="#F7F4EE"/>
+      <rect x="90" y="90" width="900" height="900" rx="34" fill="#FFFFFF" stroke="#E2DDD5" stroke-width="2"/>
+      <text x="150" y="180" font-family="Arial, sans-serif" font-size="58" font-weight="700" fill="#1A1A2E">Brain Escape</text>
+      <text x="150" y="225" font-family="Arial, sans-serif" font-size="28" fill="#5A5A7A">${escapeSvgText(formatDisplayDate())} - Daily Challenge</text>
+      <text x="820" y="150" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Streak</text>
+      <text x="820" y="195" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#1A1A2E">${escapeSvgText(getShareStreakText())}</text>
+
+      ${sectionNodes}
+
+      <line x1="150" y1="560" x2="930" y2="560" stroke="#EFE8DE" stroke-width="2"/>
+      <line x1="150" y1="720" x2="930" y2="720" stroke="#EFE8DE" stroke-width="2"/>
+
+      <text x="190" y="615" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Score</text>
+      <text x="190" y="670" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${escapeSvgText(totalScore.toLocaleString())}</text>
+      <text x="190" y="705" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">/ 1,200</text>
+
+      <text x="455" y="615" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Solved</text>
+      <text x="455" y="670" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${solved}/8</text>
+      <text x="455" y="705" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">puzzles</text>
+
+      <text x="720" y="615" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Time</text>
+      <text x="720" y="670" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${escapeSvgText(formatTime(totalTime))}</text>
+      <text x="720" y="705" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">minutes</text>
+
+      <text x="150" y="790" font-family="Arial, sans-serif" font-size="28" font-weight="600" fill="#1A1A2E">Better than ${pct}% of players today</text>
+      <text x="930" y="790" text-anchor="end" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#1A1A2E">${escapeSvgText(formatShareTopPercentile(pct))}</text>
+      <rect x="150" y="820" width="780" height="16" rx="8" fill="#E8E2D7"/>
+      <rect x="150" y="820" width="${Math.round(7.8 * pct)}" height="16" rx="8" fill="#4F46E5"/>
+
+      <text x="540" y="915" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#5A5A7A">${escapeSvgText(SHARE_SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''))} - Play the daily challenge</text>
+    </svg>
+  `;
+}
+
+async function generateShareCardBlob(solved, totalTime, pct) {
+  const svg = buildShareCardSvg(solved, totalTime, pct);
+  const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svgBlob);
+
+  try {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const pngBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!pngBlob) throw new Error('Could not create image');
+    return pngBlob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function showResults() {
   const solved = results.filter(Boolean).length;
   const totalTime = Math.floor((Date.now()-gameStartTime)/1000);
   const pct = Math.min(95, Math.floor(40+Math.random()*40));
+  lastResultSummary = { solved, totalTime, pct };
 
   document.getElementById('resEmoji').textContent = solved>=6?'🎉':solved>=4?'🧠':'😅';
   document.getElementById('resTitle').textContent = solved>=6?'Escaped!':solved>=4?'Well done!':'Keep trying!';
@@ -1170,7 +1268,7 @@ function buildAnswersSummary() {
     return '<div class="answer-row">' +
       '<span class="answer-icon">' + p.icon + '</span>' +
       '<div class="answer-content">' +
-        '<div class="answer-section-lbl">' + p.section.replace(/[^a-zA-Zs]/g,'').trim() + '</div>' +
+        '<div class="answer-section-lbl">' + p.section.replace(/[^a-zA-Z\\s]/g,'').trim() + '</div>' +
         '<div class="answer-val">' + ans + '</div>' +
         (p.explanation ? '<div class="answer-explain">' + p.explanation + '</div>' : '') +
       '</div>' +
@@ -1181,10 +1279,45 @@ function buildAnswersSummary() {
 }
 
 function shareResult() {
-  const solved = results.filter(Boolean).length;
-  const text = `Brain Escape - ${formatDisplayDate()}\n${PUZZLES.map((p,i)=>p.icon+(results[i] ? '?' : '?')).join(' ')}\n\nScore: ${totalScore}/1,200\nSolved: ${solved}/8\n\nbrainescape.com`;
-  if(navigator.share) navigator.share({text});
-  else { navigator.clipboard.writeText(text); alert('Result copied to clipboard!'); }
+  shareResultCard().catch(() => {
+    alert('Could not create share card image. Please try again.');
+  });
+}
+
+async function shareResultCard() {
+  const summary = lastResultSummary || {
+    solved: results.filter(Boolean).length,
+    totalTime: Math.floor((Date.now()-gameStartTime)/1000),
+    pct: Math.min(95, Math.floor(40+Math.random()*40))
+  };
+  const { solved, totalTime, pct } = summary;
+  const blob = await generateShareCardBlob(solved, totalTime, pct);
+  const file = new File([blob], 'brain-escape-result.png', { type: 'image/png' });
+  const sectionSummary = PUZZLES.map((p, i) => `${p.icon}${results[i] ? '\u2705' : '\u274C'}`).join(' ');
+  const text = `Brain Escape - ${formatDisplayDate()}\n${sectionSummary}\n\nScore: ${totalScore}/1,200\nSolved: ${solved}/8\nTime: ${formatTime(totalTime)}\n\n${SHARE_SITE_URL}`;
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({
+      title: 'Brain Escape',
+      text,
+      files: [file]
+    });
+    return;
+  }
+
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = 'brain-escape-result.png';
+  link.click();
+  URL.revokeObjectURL(downloadUrl);
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    await navigator.clipboard.writeText(text);
+    alert('Share card downloaded and result text copied to clipboard.');
+  } else {
+    alert('Share card downloaded.');
+  }
 }
 
 
