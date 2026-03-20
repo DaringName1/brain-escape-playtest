@@ -1293,8 +1293,7 @@ async function shareResultCard() {
   const { solved, totalTime, pct } = summary;
   const blob = await generateShareCardBlob(solved, totalTime, pct);
   const file = new File([blob], 'brain-escape-result.png', { type: 'image/png' });
-  const sectionSummary = PUZZLES.map((p, i) => `${p.icon}${results[i] ? '\u2705' : '\u274C'}`).join(' ');
-  const text = `Brain Escape - ${formatDisplayDate()}\n${sectionSummary}\n\nScore: ${totalScore}/1,200\nSolved: ${solved}/8\nTime: ${formatTime(totalTime)}\n\n${SHARE_SITE_URL}`;
+  const text = SHARE_SITE_URL;
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     await navigator.share({
