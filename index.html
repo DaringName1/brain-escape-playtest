@@ -563,6 +563,7 @@ let timerVal = 0;
 let startTime = null;
 let gameStartTime = null;
 let lastResultSummary = null;
+let currentSessionScoreSaved = false;
 
 // Memory state
 let memPhase = 'show'; // 'show' | 'answer'
@@ -666,6 +667,7 @@ async function startGame() {
   
   currentIdx=0; scores=[]; results=[]; totalScore=0;
   gameStartTime=Date.now();
+  currentSessionScoreSaved = false;
   showScreen('puzzle');
   renderPuzzle(0);
 }
@@ -1239,11 +1241,36 @@ async function generateShareCardBlob(solved, totalTime, pct) {
   }
 }
 
+async function saveScoreIfSignedIn(summary) {
+  if (!currentUser || currentSessionScoreSaved) return;
+
+  const payload = {
+    player_id: currentUser.id,
+    puzzle_date: getLocalDateString(),
+    score: totalScore,
+    puzzles_solved: summary.solved,
+    time_seconds: summary.totalTime,
+    streak_count: 0
+  };
+
+  const { error } = await supabaseClient
+    .from('scores')
+    .insert(payload);
+
+  if (error) {
+    console.error('Could not save score:', error.message);
+    return;
+  }
+
+  currentSessionScoreSaved = true;
+}
+
 function showResults() {
   const solved = results.filter(Boolean).length;
   const totalTime = Math.floor((Date.now()-gameStartTime)/1000);
   const pct = Math.min(95, Math.floor(40+Math.random()*40));
   lastResultSummary = { solved, totalTime, pct };
+  saveScoreIfSignedIn(lastResultSummary);
 
   document.getElementById('resEmoji').textContent = solved>=6?'🎉':solved>=4?'🧠':'😅';
   document.getElementById('resTitle').textContent = solved>=6?'Escaped!':solved>=4?'Well done!':'Keep trying!';
