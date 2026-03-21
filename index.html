@@ -376,12 +376,14 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 // ── SUPABASE AUTH ────────────────────────────────────────────
 const supabaseClient = supabase.createClient('https://nocgxejxtydoztldbsev.supabase.co', 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6');
 let currentUser = null;
+let currentPlayerProfile = null;
 
 async function initAuth() {
   // Check for magic link callback
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session) {
     currentUser = session.user;
+    await ensurePlayerProfile();
     showScreen('home');
     updateUserPill();
     updateHomeDisplay();
@@ -389,11 +391,16 @@ async function initAuth() {
   }
   
   // Listen for auth changes
-  supabaseClient.auth.onAuthStateChange((event, session) => {
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
     if(session) {
       currentUser = session.user;
+      await ensurePlayerProfile();
       showScreen('home');
       updateUserPill();
+      updateHomeDisplay();
+    } else {
+      currentUser = null;
+      currentPlayerProfile = null;
       updateHomeDisplay();
     }
   });
@@ -434,6 +441,7 @@ async function sendMagicLink() {
 
 function continueAsGuest() {
   currentUser = null;
+  currentPlayerProfile = null;
   showScreen('home');
   updateHomeDisplay();
 }
@@ -461,6 +469,7 @@ function updateUserPill() {
 async function signOut() {
   await supabaseClient.auth.signOut();
   currentUser = null;
+  currentPlayerProfile = null;
   updateHomeDisplay();
   showScreen('auth');
 }
@@ -585,6 +594,104 @@ function getLocalDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function shiftDateString(dateString, offsetDays) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + offsetDays);
+  return getLocalDateString(date);
+}
+
+async function ensurePlayerProfile() {
+  if (!currentUser) return null;
+  if (currentPlayerProfile) return currentPlayerProfile;
+
+  const { data, error } = await supabaseClient
+    .from('players')
+    .select('id, streak_count, longest_streak, total_games, avg_score')
+    .eq('id', currentUser.id)
+    .single();
+
+  if (!error && data) {
+    currentPlayerProfile = data;
+    return currentPlayerProfile;
+  }
+
+  const newProfile = {
+    id: currentUser.id,
+    username: currentUser.email || null,
+    streak_count: 0,
+    longest_streak: 0,
+    total_games: 0,
+    avg_score: 0
+  };
+
+  const { data: inserted, error: insertError } = await supabaseClient
+    .from('players')
+    .insert(newProfile)
+    .select('id, streak_count, longest_streak, total_games, avg_score')
+    .single();
+
+  if (insertError) {
+    console.error('Could not create player profile:', insertError.message);
+    return null;
+  }
+
+  currentPlayerProfile = inserted || newProfile;
+  return currentPlayerProfile;
+}
+
+async function getLatestScoreEntry(userId) {
+  const { data, error } = await supabaseClient
+    .from('scores')
+    .select('id, puzzle_date')
+    .eq('player_id', userId)
+    .order('created_at', { ascending: false })
+    .order('puzzle_date', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Could not read latest score date:', error.message);
+    return null;
+  }
+
+  return data && data.length ? data[0] : null;
+}
+
+function computeUpdatedPlayerStats(profile, latestPlayedDate, today, latestScore) {
+  const baseProfile = profile || {
+    streak_count: 0,
+    longest_streak: 0,
+    total_games: 0,
+    avg_score: 0
+  };
+
+  const isSameDayReplay = latestPlayedDate === today;
+  let nextStreak = 1;
+  if (isSameDayReplay) {
+    nextStreak = baseProfile.streak_count || 1;
+  } else if (latestPlayedDate === shiftDateString(today, -1)) {
+    nextStreak = (baseProfile.streak_count || 0) + 1;
+  }
+
+  const nextTotalGames = isSameDayReplay
+    ? (baseProfile.total_games || 0)
+    : (baseProfile.total_games || 0) + 1;
+  const previousTotal = baseProfile.total_games || 0;
+  const previousAverage = baseProfile.avg_score || 0;
+  const nextAverage = isSameDayReplay
+    ? previousAverage
+    : previousTotal === 0
+      ? latestScore
+      : ((previousAverage * previousTotal) + latestScore) / nextTotalGames;
+
+  return {
+    streak_count: nextStreak,
+    longest_streak: Math.max(baseProfile.longest_streak || 0, nextStreak),
+    total_games: nextTotalGames,
+    avg_score: Number(nextAverage.toFixed(2))
+  };
+}
+
 function formatDisplayDate(date = new Date()) {
   return date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -601,8 +708,14 @@ function updateHomeDisplay() {
   const streakNumEl = document.getElementById('homeStreakNum');
   const streakLabelEl = document.getElementById('homeStreakLabel');
   if (streakNumEl && streakLabelEl) {
-    streakNumEl.textContent = '-';
-    streakLabelEl.textContent = currentUser ? 'streaks coming soon' : 'sign in to track';
+    if (!currentUser) {
+      streakNumEl.textContent = '-';
+      streakLabelEl.textContent = 'sign in to track';
+    } else {
+      const streak = currentPlayerProfile?.streak_count || 0;
+      streakNumEl.textContent = String(streak);
+      streakLabelEl.textContent = streak === 1 ? 'day' : 'days';
+    }
   }
 }
 
@@ -1091,7 +1204,9 @@ const SHARE_OK = '\u2713';
 const SHARE_NO = '\u2715';
 
 function getShareStreakText() {
-  return currentUser ? 'Soon' : '-';
+  if (!currentUser) return '-';
+  const streak = currentPlayerProfile?.streak_count || 0;
+  return `${streak} ${streak === 1 ? 'day' : 'days'}`;
 }
 
 function formatShareTopPercentile(pct) {
@@ -1182,10 +1297,10 @@ function buildShareCardSvg(solved, totalTime, pct) {
     <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
       <rect width="1080" height="1080" fill="#F7F4EE"/>
       <rect x="90" y="90" width="900" height="900" rx="34" fill="#FFFFFF" stroke="#E2DDD5" stroke-width="2"/>
-      <text x="150" y="176" font-family="Arial, sans-serif" font-size="56" font-weight="700" fill="#1A1A2E">Brain Escape</text>
-      <text x="150" y="220" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">${escapeSvgText(formatDisplayDate())} - Daily Challenge</text>
-      <text x="885" y="154" text-anchor="end" font-family="Arial, sans-serif" font-size="22" fill="#5A5A7A">Streak</text>
-      <text x="885" y="194" text-anchor="end" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#1A1A2E">${escapeSvgText(getShareStreakText())}</text>
+      <text x="150" y="174" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">Brain Escape</text>
+      <text x="150" y="218" font-family="Arial, sans-serif" font-size="23" fill="#5A5A7A">${escapeSvgText(formatDisplayDate())} - Daily Challenge</text>
+      <text x="870" y="160" text-anchor="end" font-family="Arial, sans-serif" font-size="21" fill="#5A5A7A">Streak</text>
+      <text x="870" y="198" text-anchor="end" font-family="Arial, sans-serif" font-size="44" font-weight="700" fill="#1A1A2E">${escapeSvgText(getShareStreakText())}</text>
 
       ${sectionNodes}
 
@@ -1209,7 +1324,7 @@ function buildShareCardSvg(solved, totalTime, pct) {
       <rect x="150" y="842" width="780" height="16" rx="8" fill="#E8E2D7"/>
       <rect x="150" y="842" width="${Math.round(7.8 * pct)}" height="16" rx="8" fill="#4F46E5"/>
 
-      <text x="540" y="934" text-anchor="middle" font-family="Arial, sans-serif" font-size="23" fill="#5A5A7A">${escapeSvgText(SHARE_SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''))} - Play the daily challenge</text>
+      <text x="540" y="925" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" fill="#5A5A7A">${escapeSvgText(SHARE_SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''))} - Play the daily challenge</text>
     </svg>
   `;
 }
@@ -1243,26 +1358,67 @@ async function generateShareCardBlob(solved, totalTime, pct) {
 
 async function saveScoreIfSignedIn(summary) {
   if (!currentUser || currentSessionScoreSaved) return;
+  const profile = await ensurePlayerProfile();
+  if (!profile) return;
+
+  const today = getLocalDateString();
+  const latestScoreEntry = await getLatestScoreEntry(currentUser.id);
+  const latestPlayedDate = latestScoreEntry?.puzzle_date || null;
+  const updatedStats = computeUpdatedPlayerStats(profile, latestPlayedDate, today, totalScore);
+  const isSameDayReplay = latestPlayedDate === today && latestScoreEntry?.id;
 
   const payload = {
     player_id: currentUser.id,
-    puzzle_date: getLocalDateString(),
+    puzzle_date: today,
     score: totalScore,
     puzzles_solved: summary.solved,
     time_seconds: summary.totalTime,
-    streak_count: 0
+    streak_count: updatedStats.streak_count
   };
 
-  const { error } = await supabaseClient
-    .from('scores')
-    .insert(payload);
+  const scoreWrite = isSameDayReplay
+    ? supabaseClient.from('scores').update(payload).eq('id', latestScoreEntry.id)
+    : supabaseClient.from('scores').insert(payload);
 
-  if (error) {
-    console.error('Could not save score:', error.message);
+  const { error: scoreError } = await scoreWrite;
+
+  if (scoreError) {
+    console.error('Could not save score:', scoreError.message);
     return;
   }
 
+  if (!isSameDayReplay) {
+    const { data: updatedProfile, error: profileError } = await supabaseClient
+      .from('players')
+      .update(updatedStats)
+      .eq('id', currentUser.id)
+      .select('id, streak_count, longest_streak, total_games, avg_score')
+      .single();
+
+    if (profileError) {
+      console.error('Could not update streak profile:', profileError.message);
+      return;
+    }
+
+    currentPlayerProfile = updatedProfile || { ...profile, ...updatedStats };
+  } else {
+    currentPlayerProfile = { ...profile, ...updatedStats };
+  }
+
   currentSessionScoreSaved = true;
+  updateHomeDisplay();
+
+  const resultStreakEl = document.getElementById('resStreak');
+  if (resultStreakEl) {
+    resultStreakEl.textContent = getShareStreakText();
+  }
+
+  if (lastResultSummary) {
+    const shareCardEl = document.getElementById('shareCardContainer');
+    if (shareCardEl) {
+      shareCardEl.innerHTML = buildShareCard(lastResultSummary.solved, lastResultSummary.totalTime, lastResultSummary.pct);
+    }
+  }
 }
 
 function showResults() {
