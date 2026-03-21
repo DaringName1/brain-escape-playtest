@@ -1169,12 +1169,12 @@ function buildShareCardSvg(solved, totalTime, pct) {
   const sectionNodes = sections.map((section, i) => {
     const col = i % 4;
     const row = Math.floor(i / 4);
-    const x = 200 + col * 170;
-    const y = 255 + row * 135;
+    const x = 205 + col * 168;
+    const y = 285 + row * 126;
     return `
       <text x="${x}" y="${y}" text-anchor="middle" font-size="34">${escapeSvgText(section.icon)}</text>
-      <text x="${x}" y="${y + 34}" text-anchor="middle" font-size="18" font-weight="600" fill="#1A1A2E">${escapeSvgText(section.label)}</text>
-      <text x="${x}" y="${y + 74}" text-anchor="middle" font-size="34" font-weight="700" fill="${section.statusColor}">${section.status}</text>
+      <text x="${x}" y="${y + 38}" text-anchor="middle" font-size="18" font-weight="600" fill="#1A1A2E">${escapeSvgText(section.label)}</text>
+      <text x="${x}" y="${y + 82}" text-anchor="middle" font-size="34" font-weight="700" fill="${section.statusColor}">${section.status}</text>
     `;
   }).join('');
 
@@ -1183,33 +1183,33 @@ function buildShareCardSvg(solved, totalTime, pct) {
       <rect width="1080" height="1080" fill="#F7F4EE"/>
       <rect x="90" y="90" width="900" height="900" rx="34" fill="#FFFFFF" stroke="#E2DDD5" stroke-width="2"/>
       <text x="150" y="180" font-family="Arial, sans-serif" font-size="58" font-weight="700" fill="#1A1A2E">Brain Escape</text>
-      <text x="150" y="225" font-family="Arial, sans-serif" font-size="28" fill="#5A5A7A">${escapeSvgText(formatDisplayDate())} - Daily Challenge</text>
-      <text x="820" y="150" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Streak</text>
-      <text x="820" y="195" font-family="Arial, sans-serif" font-size="46" font-weight="700" fill="#1A1A2E">${escapeSvgText(getShareStreakText())}</text>
+      <text x="150" y="220" font-family="Arial, sans-serif" font-size="25" fill="#5A5A7A">${escapeSvgText(formatDisplayDate())} - Daily Challenge</text>
+      <text x="885" y="150" text-anchor="end" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Streak</text>
+      <text x="885" y="195" text-anchor="end" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="#1A1A2E">${escapeSvgText(getShareStreakText())}</text>
 
       ${sectionNodes}
 
-      <line x1="150" y1="560" x2="930" y2="560" stroke="#EFE8DE" stroke-width="2"/>
-      <line x1="150" y1="720" x2="930" y2="720" stroke="#EFE8DE" stroke-width="2"/>
+      <line x1="150" y1="575" x2="930" y2="575" stroke="#EFE8DE" stroke-width="2"/>
+      <line x1="150" y1="735" x2="930" y2="735" stroke="#EFE8DE" stroke-width="2"/>
 
-      <text x="190" y="615" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Score</text>
-      <text x="190" y="670" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${escapeSvgText(totalScore.toLocaleString())}</text>
-      <text x="190" y="705" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">/ 1,200</text>
+      <text x="235" y="630" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Score</text>
+      <text x="235" y="686" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${escapeSvgText(totalScore.toLocaleString())}</text>
+      <text x="235" y="721" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">/ 1,200</text>
 
-      <text x="455" y="615" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Solved</text>
-      <text x="455" y="670" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${solved}/8</text>
-      <text x="455" y="705" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">puzzles</text>
+      <text x="540" y="630" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Solved</text>
+      <text x="540" y="686" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${solved}/8</text>
+      <text x="540" y="721" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">puzzles</text>
 
-      <text x="720" y="615" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Time</text>
-      <text x="720" y="670" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${escapeSvgText(formatTime(totalTime))}</text>
-      <text x="720" y="705" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">minutes</text>
+      <text x="845" y="630" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">Time</text>
+      <text x="845" y="686" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" font-weight="700" fill="#1A1A2E">${escapeSvgText(formatTime(totalTime))}</text>
+      <text x="845" y="721" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">minutes</text>
 
-      <text x="150" y="790" font-family="Arial, sans-serif" font-size="28" font-weight="600" fill="#1A1A2E">Better than ${pct}% of players today</text>
-      <text x="930" y="790" text-anchor="end" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#1A1A2E">${escapeSvgText(formatShareTopPercentile(pct))}</text>
-      <rect x="150" y="820" width="780" height="16" rx="8" fill="#E8E2D7"/>
-      <rect x="150" y="820" width="${Math.round(7.8 * pct)}" height="16" rx="8" fill="#4F46E5"/>
+      <text x="150" y="805" font-family="Arial, sans-serif" font-size="28" font-weight="600" fill="#1A1A2E">Better than ${pct}% of players today</text>
+      <text x="930" y="805" text-anchor="end" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#1A1A2E">${escapeSvgText(formatShareTopPercentile(pct))}</text>
+      <rect x="150" y="835" width="780" height="16" rx="8" fill="#E8E2D7"/>
+      <rect x="150" y="835" width="${Math.round(7.8 * pct)}" height="16" rx="8" fill="#4F46E5"/>
 
-      <text x="540" y="915" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#5A5A7A">${escapeSvgText(SHARE_SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''))} - Play the daily challenge</text>
+      <text x="540" y="928" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#5A5A7A">${escapeSvgText(SHARE_SITE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''))} - Play the daily challenge</text>
     </svg>
   `;
 }
