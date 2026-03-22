@@ -56,6 +56,16 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .leaderboard-score { text-align:right; }
 .leaderboard-score-val { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; line-height:1.1; }
 .leaderboard-score-lbl { font-size:11px; color:var(--ink-light); margin-top:2px; }
+.name-card { background:var(--white); border-radius:24px; padding:20px; box-shadow:var(--shadow); border:1px solid var(--border); width:100%; max-width:420px; margin-bottom:24px; }
+.name-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; margin-bottom:6px; letter-spacing:-0.3px; }
+.name-sub { font-size:13px; color:var(--ink-light); margin-bottom:14px; line-height:1.4; }
+.name-row { display:flex; gap:10px; }
+.name-input { flex:1; padding:14px 16px; border:2px solid var(--border); border-radius:12px; font-family:'DM Sans',sans-serif; font-size:15px; color:var(--ink); background:var(--white); outline:none; transition:border 0.2s; }
+.name-input:focus { border-color:var(--accent2); }
+.name-save { padding:14px 16px; background:var(--ink); color:white; border:none; border-radius:12px; font-family:'Syne',sans-serif; font-size:14px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+.name-save:hover { background:var(--accent2); }
+.name-save:disabled { opacity:0.6; cursor:default; }
+.name-status { font-size:12px; color:var(--ink-light); margin-top:10px; min-height:16px; }
 .btn-start { width:100%; max-width:420px; padding:18px; background:var(--ink); color:white; border:none; border-radius:16px; font-family:'Syne',sans-serif; font-size:18px; font-weight:700; cursor:pointer; letter-spacing:-0.5px; transition:all 0.2s; }
 .btn-start:hover { background:var(--accent2); transform:translateY(-2px); box-shadow:var(--shadow-lg); }
 
@@ -250,6 +260,11 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   .leaderboard-name { font-size:15px; }
   .leaderboard-meta { font-size:12px; }
   .leaderboard-score-val { font-size:20px; }
+  .name-card { padding:18px 16px; }
+  .name-title { font-size:19px; }
+  .name-sub, .name-status, .name-input { font-size:14px; }
+  .name-row { flex-direction:column; }
+  .name-save { width:100%; }
   .chip { padding:12px 6px; }
   .chip .ci { font-size:20px; }
   .chip .cl { font-size:10px; }
@@ -359,6 +374,15 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       </div>
     </div>
     <div id="leaderboardContent" class="leaderboard-status">Loading leaderboard...</div>
+  </div>
+  <div class="name-card" id="gameNameCard" style="display:none">
+    <div class="name-title">Choose Your Game Name</div>
+    <div class="name-sub">This is the name shown on the leaderboard. It does not have to be your real name.</div>
+    <div class="name-row">
+      <input id="gameNameInput" class="name-input" type="text" maxlength="20" placeholder="Pick a game name" />
+      <button id="gameNameSave" class="name-save" onclick="saveGameName()">Save Name</button>
+    </div>
+    <div id="gameNameStatus" class="name-status"></div>
   </div>
   <button class="btn-start" onclick="startGame()">Start Today's Challenge</button>
 </div>
@@ -510,6 +534,7 @@ const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 
 let PUZZLES = [];
 let leaderboardState = { status: 'loading', entries: [] };
+let gameNameSaveInFlight = false;
 
 async function loadPuzzlesFromSupabase() {
   const today = getLocalDateString();
@@ -638,7 +663,7 @@ async function ensurePlayerProfile() {
 
   const { data, error } = await supabaseClient
     .from('players')
-    .select('id, streak_count, longest_streak, total_games, avg_score')
+    .select('id, username, streak_count, longest_streak, total_games, avg_score')
     .eq('id', currentUser.id)
     .single();
 
@@ -647,9 +672,10 @@ async function ensurePlayerProfile() {
     return currentPlayerProfile;
   }
 
+  const safeId = String(currentUser.id || '').replace(/-/g, '').slice(0, 4).toUpperCase();
   const newProfile = {
     id: currentUser.id,
-    username: currentUser.email || null,
+    username: `Player ${safeId || '0000'}`,
     streak_count: 0,
     longest_streak: 0,
     total_games: 0,
@@ -659,7 +685,7 @@ async function ensurePlayerProfile() {
   const { data: inserted, error: insertError } = await supabaseClient
     .from('players')
     .insert(newProfile)
-    .select('id, streak_count, longest_streak, total_games, avg_score')
+    .select('id, username, streak_count, longest_streak, total_games, avg_score')
     .single();
 
   if (insertError) {
@@ -732,10 +758,19 @@ function formatDisplayDate(date = new Date()) {
   });
 }
 
+function getCurrentGameName() {
+  const username = String(currentPlayerProfile?.username || '').trim();
+  if (!username || username.includes('@')) {
+    const safeId = String(currentUser?.id || '').replace(/-/g, '').slice(0, 4).toUpperCase();
+    return `Player ${safeId || '0000'}`;
+  }
+  return username;
+}
+
 function formatLeaderboardName(rawName, playerId, index) {
   const trimmed = String(rawName || '').trim();
-  if (trimmed) {
-    return trimmed.includes('@') ? trimmed.split('@')[0] : trimmed;
+  if (trimmed && !trimmed.includes('@')) {
+    return trimmed;
   }
 
   const safeId = String(playerId || '').replace(/-/g, '');
@@ -813,6 +848,80 @@ async function loadLeaderboard() {
   renderLeaderboard();
 }
 
+function updateGameNameCard() {
+  const card = document.getElementById('gameNameCard');
+  const input = document.getElementById('gameNameInput');
+  const status = document.getElementById('gameNameStatus');
+  const saveBtn = document.getElementById('gameNameSave');
+  if (!card || !input || !status || !saveBtn) return;
+
+  if (!currentUser) {
+    card.style.display = 'none';
+    input.value = '';
+    status.textContent = '';
+    return;
+  }
+
+  card.style.display = 'block';
+  const desiredName = getCurrentGameName();
+  if (document.activeElement !== input) {
+    input.value = desiredName;
+  }
+  if (!status.textContent) {
+    status.textContent = `Current name: ${desiredName}`;
+  }
+  saveBtn.disabled = gameNameSaveInFlight;
+}
+
+async function saveGameName() {
+  if (!currentUser || gameNameSaveInFlight) return;
+
+  const input = document.getElementById('gameNameInput');
+  const status = document.getElementById('gameNameStatus');
+  const saveBtn = document.getElementById('gameNameSave');
+  if (!input || !status || !saveBtn) return;
+
+  const trimmed = input.value.trim().replace(/\s+/g, ' ');
+  if (trimmed.length < 2) {
+    status.textContent = 'Use at least 2 characters.';
+    return;
+  }
+  if (trimmed.length > 20) {
+    status.textContent = 'Keep it to 20 characters or less.';
+    return;
+  }
+  if (!/^[a-zA-Z0-9 _.-]+$/.test(trimmed)) {
+    status.textContent = 'Use letters, numbers, spaces, dots, dashes, or underscores only.';
+    return;
+  }
+
+  gameNameSaveInFlight = true;
+  saveBtn.disabled = true;
+  status.textContent = 'Saving...';
+
+  const { data, error } = await supabaseClient
+    .from('players')
+    .update({ username: trimmed })
+    .eq('id', currentUser.id)
+    .select('id, username, streak_count, longest_streak, total_games, avg_score')
+    .single();
+
+  gameNameSaveInFlight = false;
+  saveBtn.disabled = false;
+
+  if (error) {
+    status.textContent = 'Could not save that name. Try another one.';
+    console.error('Could not save game name:', error.message);
+    return;
+  }
+
+  currentPlayerProfile = data || { ...currentPlayerProfile, username: trimmed };
+  input.value = getCurrentGameName();
+  status.textContent = `Saved as ${getCurrentGameName()}`;
+  updateHomeDisplay();
+  loadLeaderboard();
+}
+
 function updateHomeDisplay() {
   const dateEl = document.getElementById('homeDate');
   if (dateEl) dateEl.textContent = formatDisplayDate();
@@ -830,6 +939,7 @@ function updateHomeDisplay() {
     }
   }
 
+  updateGameNameCard();
   renderLeaderboard();
 }
 
@@ -1506,7 +1616,7 @@ async function saveScoreIfSignedIn(summary) {
       .from('players')
       .update(updatedStats)
       .eq('id', currentUser.id)
-      .select('id, streak_count, longest_streak, total_games, avg_score')
+      .select('id, username, streak_count, longest_streak, total_games, avg_score')
       .single();
 
     if (profileError) {
