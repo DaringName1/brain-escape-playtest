@@ -329,6 +329,16 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
     <div class="auth-msg" id="authMsg"></div>
     <div class="auth-err" id="authErr"></div>
     
+    <div class="name-card" id="gameNameCardAuth">
+      <div class="name-title">Choose Your Game Name</div>
+      <div class="name-sub">This is the name shown on the leaderboard. It does not have to be your real name.</div>
+      <div class="name-row">
+        <input id="authGameNameInput" class="name-input" type="text" maxlength="20" placeholder="Pick a game name" />
+        <button id="authGameNameSave" class="name-save" onclick="saveGameNameFromAuth()">Use This Name</button>
+      </div>
+      <div id="authGameNameStatus" class="name-status"></div>
+    </div>
+
     <button class="btn-google" onclick="signInWithGoogle()">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/><path fill="#FBBC05" d="M4.5 10.48A4.8 4.8 0 014.5 7.5V5.43H1.83a8 8 0 000 7.14l2.67-2.09z"/><path fill="#EA4335" d="M8.98 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A8 8 0 001.83 5.43L4.5 7.5a4.8 4.8 0 014.48-3.92z"/></svg>
       Continue with Google
@@ -374,15 +384,6 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       </div>
     </div>
     <div id="leaderboardContent" class="leaderboard-status">Loading leaderboard...</div>
-  </div>
-  <div class="name-card" id="gameNameCard" style="display:none">
-    <div class="name-title">Choose Your Game Name</div>
-    <div class="name-sub">This is the name shown on the leaderboard. It does not have to be your real name.</div>
-    <div class="name-row">
-      <input id="gameNameInput" class="name-input" type="text" maxlength="20" placeholder="Pick a game name" />
-      <button id="gameNameSave" class="name-save" onclick="saveGameName()">Save Name</button>
-    </div>
-    <div id="gameNameStatus" class="name-status"></div>
   </div>
   <button class="btn-start" onclick="startGame()">Start Today's Challenge</button>
 </div>
@@ -463,6 +464,7 @@ async function initAuth() {
 }
 
 async function signInWithGoogle() {
+  if (!primeGameNameBeforeAuth()) return;
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.href }
@@ -471,6 +473,7 @@ async function signInWithGoogle() {
 }
 
 async function sendMagicLink() {
+  if (!primeGameNameBeforeAuth()) return;
   const email = document.getElementById('magicEmail').value.trim();
   if(!email) { showAuthErr('Please enter your email address.'); return; }
   
@@ -534,7 +537,6 @@ const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 
 let PUZZLES = [];
 let leaderboardState = { status: 'loading', entries: [] };
-let gameNameSaveInFlight = false;
 
 async function loadPuzzlesFromSupabase() {
   const today = getLocalDateString();
@@ -629,6 +631,7 @@ let startTime = null;
 let gameStartTime = null;
 let lastResultSummary = null;
 let currentSessionScoreSaved = false;
+const PENDING_GAME_NAME_KEY = 'brainEscapePendingGameName';
 
 // Memory state
 let memPhase = 'show'; // 'show' | 'answer'
@@ -657,9 +660,35 @@ function shiftDateString(dateString, offsetDays) {
   return getLocalDateString(date);
 }
 
+function normalizeGameName(value) {
+  const trimmed = String(value || '').trim().replace(/\s+/g, ' ');
+  if (trimmed.length < 2) return { ok: false, message: 'Use at least 2 characters.' };
+  if (trimmed.length > 20) return { ok: false, message: 'Keep it to 20 characters or less.' };
+  if (!/^[a-zA-Z0-9 _.-]+$/.test(trimmed)) {
+    return { ok: false, message: 'Use letters, numbers, spaces, dots, dashes, or underscores only.' };
+  }
+  return { ok: true, value: trimmed };
+}
+
+function getPendingGameName() {
+  try {
+    return localStorage.getItem(PENDING_GAME_NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function setPendingGameName(name) {
+  try {
+    if (name) localStorage.setItem(PENDING_GAME_NAME_KEY, name);
+    else localStorage.removeItem(PENDING_GAME_NAME_KEY);
+  } catch {}
+}
+
 async function ensurePlayerProfile() {
   if (!currentUser) return null;
   if (currentPlayerProfile) return currentPlayerProfile;
+  const pendingGameName = getPendingGameName();
 
   const { data, error } = await supabaseClient
     .from('players')
@@ -668,6 +697,21 @@ async function ensurePlayerProfile() {
     .single();
 
   if (!error && data) {
+    const shouldReplaceExistingName = pendingGameName && (!data.username || data.username.includes('@') || /^Player\s/i.test(data.username));
+    if (shouldReplaceExistingName) {
+      const { data: renamedProfile, error: renameError } = await supabaseClient
+        .from('players')
+        .update({ username: pendingGameName })
+        .eq('id', currentUser.id)
+        .select('id, username, streak_count, longest_streak, total_games, avg_score')
+        .single();
+
+      if (!renameError && renamedProfile) {
+        currentPlayerProfile = renamedProfile;
+        setPendingGameName('');
+        return currentPlayerProfile;
+      }
+    }
     currentPlayerProfile = data;
     return currentPlayerProfile;
   }
@@ -675,7 +719,7 @@ async function ensurePlayerProfile() {
   const safeId = String(currentUser.id || '').replace(/-/g, '').slice(0, 4).toUpperCase();
   const newProfile = {
     id: currentUser.id,
-    username: `Player ${safeId || '0000'}`,
+    username: pendingGameName || `Player ${safeId || '0000'}`,
     streak_count: 0,
     longest_streak: 0,
     total_games: 0,
@@ -694,6 +738,7 @@ async function ensurePlayerProfile() {
   }
 
   currentPlayerProfile = inserted || newProfile;
+  setPendingGameName('');
   return currentPlayerProfile;
 }
 
@@ -765,6 +810,23 @@ function getCurrentGameName() {
     return `Player ${safeId || '0000'}`;
   }
   return username;
+}
+
+function updateAuthGameNameCard() {
+  const input = document.getElementById('authGameNameInput');
+  const status = document.getElementById('authGameNameStatus');
+  const saveBtn = document.getElementById('authGameNameSave');
+  if (!input || !status || !saveBtn) return;
+
+  if (document.activeElement !== input) {
+    input.value = getPendingGameName();
+  }
+
+  if (!status.textContent) {
+    status.textContent = input.value.trim()
+      ? `Saved for sign-in: ${input.value.trim()}`
+      : 'Pick a nickname before you sign in.';
+  }
 }
 
 function formatLeaderboardName(rawName, playerId, index) {
@@ -848,78 +910,44 @@ async function loadLeaderboard() {
   renderLeaderboard();
 }
 
-function updateGameNameCard() {
-  const card = document.getElementById('gameNameCard');
-  const input = document.getElementById('gameNameInput');
-  const status = document.getElementById('gameNameStatus');
-  const saveBtn = document.getElementById('gameNameSave');
-  if (!card || !input || !status || !saveBtn) return;
+async function saveGameNameFromAuth() {
+  const input = document.getElementById('authGameNameInput');
+  const status = document.getElementById('authGameNameStatus');
+  if (!input || !status) return;
 
-  if (!currentUser) {
-    card.style.display = 'none';
-    input.value = '';
-    status.textContent = '';
+  const normalized = normalizeGameName(input.value);
+  if (!normalized.ok) {
+    status.textContent = normalized.message;
     return;
   }
 
-  card.style.display = 'block';
-  const desiredName = getCurrentGameName();
-  if (document.activeElement !== input) {
-    input.value = desiredName;
-  }
-  if (!status.textContent) {
-    status.textContent = `Current name: ${desiredName}`;
-  }
-  saveBtn.disabled = gameNameSaveInFlight;
+  setPendingGameName(normalized.value);
+  input.value = normalized.value;
+  status.textContent = `Saved for sign-in: ${normalized.value}`;
 }
 
-async function saveGameName() {
-  if (!currentUser || gameNameSaveInFlight) return;
+function primeGameNameBeforeAuth() {
+  const input = document.getElementById('authGameNameInput');
+  const status = document.getElementById('authGameNameStatus');
+  if (!input || !status) return true;
 
-  const input = document.getElementById('gameNameInput');
-  const status = document.getElementById('gameNameStatus');
-  const saveBtn = document.getElementById('gameNameSave');
-  if (!input || !status || !saveBtn) return;
-
-  const trimmed = input.value.trim().replace(/\s+/g, ' ');
-  if (trimmed.length < 2) {
-    status.textContent = 'Use at least 2 characters.';
-    return;
-  }
-  if (trimmed.length > 20) {
-    status.textContent = 'Keep it to 20 characters or less.';
-    return;
-  }
-  if (!/^[a-zA-Z0-9 _.-]+$/.test(trimmed)) {
-    status.textContent = 'Use letters, numbers, spaces, dots, dashes, or underscores only.';
-    return;
+  const raw = input.value.trim();
+  if (!raw) {
+    setPendingGameName('');
+    status.textContent = 'You can also skip this and use a default player name.';
+    return true;
   }
 
-  gameNameSaveInFlight = true;
-  saveBtn.disabled = true;
-  status.textContent = 'Saving...';
-
-  const { data, error } = await supabaseClient
-    .from('players')
-    .update({ username: trimmed })
-    .eq('id', currentUser.id)
-    .select('id, username, streak_count, longest_streak, total_games, avg_score')
-    .single();
-
-  gameNameSaveInFlight = false;
-  saveBtn.disabled = false;
-
-  if (error) {
-    status.textContent = 'Could not save that name. Try another one.';
-    console.error('Could not save game name:', error.message);
-    return;
+  const normalized = normalizeGameName(raw);
+  if (!normalized.ok) {
+    status.textContent = normalized.message;
+    return false;
   }
 
-  currentPlayerProfile = data || { ...currentPlayerProfile, username: trimmed };
-  input.value = getCurrentGameName();
-  status.textContent = `Saved as ${getCurrentGameName()}`;
-  updateHomeDisplay();
-  loadLeaderboard();
+  setPendingGameName(normalized.value);
+  input.value = normalized.value;
+  status.textContent = `Saved for sign-in: ${normalized.value}`;
+  return true;
 }
 
 function updateHomeDisplay() {
@@ -939,7 +967,7 @@ function updateHomeDisplay() {
     }
   }
 
-  updateGameNameCard();
+  updateAuthGameNameCard();
   renderLeaderboard();
 }
 
