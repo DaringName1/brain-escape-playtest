@@ -195,6 +195,22 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .bar-track { background:var(--cream); border-radius:100px; height:7px; overflow:hidden; }
 .bar-fill { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:100px; }
 .bar-sub { font-size:11px; color:var(--ink-light); margin-top:5px; }
+.yesterday-card { background:var(--white); border-radius:24px; padding:20px 22px; box-shadow:var(--shadow); border:1px solid var(--border); width:100%; max-width:420px; margin-bottom:24px; }
+.yesterday-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; margin-bottom:6px; letter-spacing:-0.3px; }
+.yesterday-main { font-size:14px; color:var(--ink-light); line-height:1.45; }
+.yesterday-main strong { color:var(--ink); font-size:16px; }
+.breakdown-card { background:var(--white); border-radius:18px; border:1px solid var(--border); overflow:hidden; margin-bottom:16px; text-align:left; }
+.breakdown-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--cream); }
+.breakdown-row { display:grid; grid-template-columns:28px 1fr auto; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
+.breakdown-row:last-child { border-bottom:none; }
+.breakdown-icon { font-size:18px; text-align:center; }
+.breakdown-info { min-width:0; }
+.breakdown-name { font-size:13px; font-weight:700; color:var(--ink); }
+.breakdown-meta { font-size:11px; color:var(--ink-light); margin-top:2px; line-height:1.35; }
+.breakdown-points { text-align:right; }
+.breakdown-score { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; color:var(--ink); }
+.breakdown-bonus { font-size:11px; color:var(--green); margin-top:2px; }
+.breakdown-bonus.muted { color:var(--ink-light); }
 .btn-share { width:100%; padding:16px; background:var(--accent); color:white; border:none; border-radius:14px; font-family:'Syne',sans-serif; font-size:16px; font-weight:700; cursor:pointer; margin-bottom:10px; transition:all 0.2s; }
 .btn-share:hover { background:#e5422a; }
 .btn-again { width:100%; padding:14px; background:var(--white); color:var(--ink); border:2px solid var(--border); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; }
@@ -260,6 +276,13 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   .leaderboard-name { font-size:15px; }
   .leaderboard-meta { font-size:12px; }
   .leaderboard-score-val { font-size:20px; }
+  .yesterday-card { padding:18px 16px; }
+  .yesterday-title { font-size:19px; }
+  .yesterday-main { font-size:15px; }
+  .breakdown-row { grid-template-columns:24px 1fr auto; gap:10px; padding:12px 14px; }
+  .breakdown-name { font-size:14px; }
+  .breakdown-meta, .breakdown-bonus { font-size:12px; }
+  .breakdown-score { font-size:20px; }
   .name-card { padding:18px 16px; }
   .name-title { font-size:19px; }
   .name-sub, .name-status, .name-input { font-size:14px; }
@@ -385,6 +408,10 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
     </div>
     <div id="leaderboardContent" class="leaderboard-status">Loading leaderboard...</div>
   </div>
+  <div class="yesterday-card">
+    <div class="yesterday-title">Yesterday's Score</div>
+    <div id="yesterdaySummary" class="yesterday-main">Sign in to compare with yesterday.</div>
+  </div>
   <button class="btn-start" onclick="startGame()">Start Today's Challenge</button>
 </div>
 
@@ -420,6 +447,7 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       <div class="bar-sub">Be the first to share your result!</div>
     </div>
     <div id="shareCardContainer"></div>
+    <div id="scoreBreakdownContainer"></div>
     <div id="answersSummaryContainer"></div><button class="btn-share" onclick="shareResult()">📤 Share Result Card</button>
     <button class="btn-again" onclick="showScreen('home')">← Back to Home</button>
   </div>
@@ -537,6 +565,7 @@ const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 
 let PUZZLES = [];
 let leaderboardState = { status: 'loading', entries: [] };
+let yesterdayScoreSummary = null;
 
 async function loadPuzzlesFromSupabase() {
   const today = getLocalDateString();
@@ -632,6 +661,7 @@ let gameStartTime = null;
 let lastResultSummary = null;
 let currentSessionScoreSaved = false;
 const PENDING_GAME_NAME_KEY = 'brainEscapePendingGameName';
+let scoreBreakdown = [];
 
 // Memory state
 let memPhase = 'show'; // 'show' | 'answer'
@@ -757,6 +787,43 @@ async function getLatestScoreEntry(userId) {
   }
 
   return data && data.length ? data[0] : null;
+}
+
+async function loadYesterdayScore() {
+  const summaryEl = document.getElementById('yesterdaySummary');
+  if (!summaryEl) return;
+
+  if (!currentUser) {
+    yesterdayScoreSummary = null;
+    summaryEl.innerHTML = 'Sign in to compare with yesterday.';
+    return;
+  }
+
+  const yesterday = shiftDateString(getLocalDateString(), -1);
+  const { data, error } = await supabaseClient
+    .from('scores')
+    .select('score, puzzles_solved, time_seconds, puzzle_date')
+    .eq('player_id', currentUser.id)
+    .eq('puzzle_date', yesterday)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Could not load yesterday score:', error.message);
+    yesterdayScoreSummary = null;
+    summaryEl.innerHTML = 'Yesterday comparison coming soon.';
+    return;
+  }
+
+  const row = Array.isArray(data) && data.length ? data[0] : null;
+  yesterdayScoreSummary = row;
+
+  if (!row) {
+    summaryEl.innerHTML = `No score saved for <strong>${formatDisplayDate(new Date(yesterday + 'T12:00:00'))}</strong>.`;
+    return;
+  }
+
+  summaryEl.innerHTML = `Yesterday you scored <strong>${row.score}</strong>, solved <strong>${row.puzzles_solved}/8</strong>, and finished in <strong>${formatTime(row.time_seconds || 0)}</strong>.`;
 }
 
 function computeUpdatedPlayerStats(profile, latestPlayedDate, today, latestScore) {
@@ -969,6 +1036,7 @@ function updateHomeDisplay() {
 
   updateAuthGameNameCard();
   renderLeaderboard();
+  loadYesterdayScore();
 }
 
 // ── UTILS ────────────────────────────────────────────────────
@@ -1033,6 +1101,7 @@ async function startGame() {
   currentIdx=0; scores=[]; results=[]; totalScore=0;
   gameStartTime=Date.now();
   currentSessionScoreSaved = false;
+  scoreBreakdown = [];
   showScreen('puzzle');
   renderPuzzle(0);
 }
@@ -1063,6 +1132,10 @@ function nextPuzzle(scoreEarned, correct) {
   currentIdx++;
   if(currentIdx >= PUZZLES.length) { showResults(); return; }
   setTimeout(()=>renderPuzzle(currentIdx), 300);
+}
+
+function recordScoreBreakdown(entry) {
+  scoreBreakdown.push(entry);
 }
 
 function showAutoAdvance(pts, correct) {
@@ -1118,6 +1191,14 @@ function choiceAnswer(btn, chosen) {
   const e = elapsed();
   const bonus = correct ? speedBonus(e) : 0;
   const pts = correct ? 100+bonus : 0;
+  recordScoreBreakdown({
+    icon: p.icon,
+    section: p.section,
+    correct,
+    points: pts,
+    bonus,
+    detail: correct ? 'Solved correctly' : `Picked ${chosen}`,
+  });
 
   document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
   btn.classList.add(correct?'correct':'wrong');
@@ -1246,7 +1327,17 @@ function memCheckAnswer(p, submitted) {
   stopTimer();
   const correct = JSON.stringify(memSelected) === JSON.stringify(p.answer);
   const e = elapsed();
-  const pts = correct ? 100+speedBonus(e) : (memSelected.length>0 && memSelected.slice(0,3).join()===p.answer.slice(0,3).join() ? 50 : 0);
+  const bonus = correct ? speedBonus(e) : 0;
+  const partial = memSelected.length>0 && memSelected.slice(0,3).join()===p.answer.slice(0,3).join();
+  const pts = correct ? 100+bonus : (partial ? 50 : 0);
+  recordScoreBreakdown({
+    icon: p.icon,
+    section: p.section,
+    correct,
+    points: pts,
+    bonus,
+    detail: correct ? 'Full recall' : (partial ? 'Partial credit for first 3 items' : 'Sequence missed'),
+  });
 
   const rev = document.getElementById('reveal');
   if(rev) {
@@ -1326,7 +1417,16 @@ function checkStrategy(auto) {
   const p = PUZZLES[currentIdx];
   const correct = JSON.stringify(strategyOrder)===JSON.stringify(p.answer);
   const e = elapsed();
-  const pts = correct ? 100+speedBonus(e) : 0;
+  const bonus = correct ? speedBonus(e) : 0;
+  const pts = correct ? 100+bonus : 0;
+  recordScoreBreakdown({
+    icon: p.icon,
+    section: p.section,
+    correct,
+    points: pts,
+    bonus,
+    detail: correct ? 'Correct order' : 'Order incorrect',
+  });
 
   const list = document.getElementById('dragList');
   if(list) {
@@ -1379,7 +1479,16 @@ function checkCreativity() {
   if(correct) {
     stopTimer();
     const e = elapsed();
-    const pts = 100+speedBonus(e);
+    const bonus = speedBonus(e);
+    const pts = 100+bonus;
+    recordScoreBreakdown({
+      icon: p.icon,
+      section: p.section,
+      correct: true,
+      points: pts,
+      bonus,
+      detail: 'Typed the answer directly',
+    });
     const rev = document.getElementById('reveal');
     if(rev) rev.innerHTML = `<div class="reveal">
       <div class="reveal-correct">✅ Correct! "${p.answer}"</div>
@@ -1421,11 +1530,19 @@ function creativityChoice(btn, chosen, answer) {
   stopTimer();
   const correct = chosen === answer;
   const pts = correct ? 50 : 0;
+  const p = PUZZLES[currentIdx];
+  recordScoreBreakdown({
+    icon: p.icon,
+    section: p.section,
+    correct,
+    points: pts,
+    bonus: 0,
+    detail: correct ? 'Partial credit from multiple choice' : `Picked ${chosen}`,
+  });
   document.querySelectorAll('.opt').forEach(b=>b.disabled=true);
   btn.classList.add(correct?'correct':'wrong');
   if(!correct) document.querySelectorAll('.opt').forEach(b=>{ if(b.textContent.trim()===answer) b.classList.add('correct'); });
 
-  const p = PUZZLES[currentIdx];
   const existing = document.querySelector('.reveal');
   if(existing) {
     existing.insertAdjacentHTML('afterend',`
@@ -1440,6 +1557,14 @@ function creativityChoice(btn, chosen, answer) {
 function autoFail(p) {
   const rev = document.getElementById('reveal');
   if(rev && !rev.innerHTML) {
+    recordScoreBreakdown({
+      icon: p.icon,
+      section: p.section,
+      correct: false,
+      points: 0,
+      bonus: 0,
+      detail: "Time's up",
+    });
     rev.innerHTML = `<div class="reveal wrong-reveal">
       <div class="reveal-wrong">⏱️ Time's up!</div>
       <div class="reveal-correct">✅ Correct answer: ${Array.isArray(p.answer)?p.answer.join(' → '):p.answer}</div>
@@ -1451,6 +1576,29 @@ function autoFail(p) {
 }
 
 // ── RESULTS ──────────────────────────────────────────────────
+function buildScoreBreakdown() {
+  if (!scoreBreakdown.length) return '';
+
+  const rows = scoreBreakdown.map(entry => {
+    const bonusText = entry.bonus > 0 ? `+${entry.bonus} speed bonus` : (entry.points === 0 ? 'No points' : 'No speed bonus');
+    return `
+      <div class="breakdown-row">
+        <div class="breakdown-icon">${entry.icon}</div>
+        <div class="breakdown-info">
+          <div class="breakdown-name">${entry.section.replace(/[^a-zA-Z\\s]/g,'').trim()}</div>
+          <div class="breakdown-meta">${entry.detail}</div>
+        </div>
+        <div class="breakdown-points">
+          <div class="breakdown-score">${entry.points}</div>
+          <div class="breakdown-bonus ${entry.bonus > 0 ? '' : 'muted'}">${bonusText}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `<div class="breakdown-card"><div class="breakdown-title">Score Breakdown</div>${rows}</div>`;
+}
+
 const SHARE_SITE_URL = 'https://brain-escape-playtest.vercel.app/';
 const SHARE_OK = '\u2713';
 const SHARE_NO = '\u2715';
@@ -1693,6 +1841,7 @@ function showResults() {
   document.getElementById('resBar').style.width = pct+'%';
 
   document.getElementById('shareCardContainer').innerHTML = buildShareCard(solved, totalTime, pct);
+  document.getElementById('scoreBreakdownContainer').innerHTML = buildScoreBreakdown();
   document.getElementById('answersSummaryContainer').innerHTML = buildAnswersSummary(); showScreen('results');
 }
 
