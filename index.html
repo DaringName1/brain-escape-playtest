@@ -77,7 +77,8 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .dot.active { background:var(--accent); width:22px; border-radius:4px; }
 .timer { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; background:var(--cream); border:1px solid var(--border); border-radius:8px; padding:5px 11px; min-width:48px; text-align:center; transition:all 0.3s; }
 .timer.warn { color:var(--accent); border-color:var(--accent); background:#FFF5F3; }
-.score-badge { font-size:12px; font-weight:600; color:var(--ink-light); white-space:nowrap; }
+.score-badge { font-size:12px; font-weight:600; color:var(--ink-light); white-space:nowrap; transition:transform 0.18s ease, color 0.18s ease; }
+.score-badge.score-pop { transform:scale(1.12); color:var(--accent2); }
 
 /* ── PUZZLE BODY ── */
 .puzzle-body { padding:20px; display:flex; flex-direction:column; gap:16px; flex:1; max-width:500px; width:100%; margin:0 auto; }
@@ -141,9 +142,13 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .btn-submit:hover { background:#3730A3; }
 
 /* ── REVEAL ── */
-.reveal { border-radius:14px; border:2px solid var(--green); padding:16px; background:var(--white); animation:slideUp 0.3s ease; }
+.reveal { border-radius:14px; border:2px solid var(--green); padding:16px; background:var(--white); animation:slideUp 0.3s ease; transform-origin:center top; }
 .reveal.wrong-reveal { border-color:var(--accent); }
 @keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes revealCelebrate { 0%{transform:translateY(8px) scale(0.98)} 55%{transform:translateY(0) scale(1.015)} 100%{transform:translateY(0) scale(1)} }
+@keyframes revealShake { 0%{transform:translateX(0)} 20%{transform:translateX(-4px)} 40%{transform:translateX(4px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} 100%{transform:translateX(0)} }
+.reveal.success-pop { animation:revealCelebrate 0.26s ease; }
+.reveal.failure-pop { animation:revealShake 0.22s ease; }
 .reveal-wrong { font-size:13px; font-weight:600; color:#9B1C1C; margin-bottom:4px; }
 .reveal-correct { font-size:13px; font-weight:600; color:#166534; margin-bottom:8px; }
 .reveal-explain { font-size:13px; color:var(--ink-light); line-height:1.5; padding-top:8px; border-top:1px solid var(--border); }
@@ -152,6 +157,8 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .skip-btn { background:none; border:none; color:var(--ink-light); font-size:12px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; align-self:center; padding:4px; }
 .auto-next { display:flex; align-items:center; justify-content:center; gap:10px; padding:12px; background:var(--cream); border-radius:12px; margin-top:8px; font-size:13px; color:var(--ink-light); font-weight:500; }
 .auto-next-circle { width:32px; height:32px; border-radius:50%; border:3px solid var(--accent2); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-weight:800; font-size:14px; color:var(--accent2); flex-shrink:0; transition:all 0.3s; }
+.puzzle-body.puzzle-enter { animation:puzzleFadeIn 0.18s ease; }
+@keyframes puzzleFadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
 .answers-summary { background:var(--white); border-radius:18px; border:1px solid var(--border); overflow:hidden; margin-bottom:16px; }
 .answers-sum-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--cream); }
 .answer-row { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); }
@@ -460,32 +467,46 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 const supabaseClient = supabase.createClient('https://nocgxejxtydoztldbsev.supabase.co', 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6');
 let currentUser = null;
 let currentPlayerProfile = null;
+let lastHandledAuthUserId = null;
+
+async function applyAuthSession(session) {
+  const nextUser = session?.user || null;
+  const nextUserId = nextUser?.id || null;
+
+  if (!nextUser) {
+    currentUser = null;
+    currentPlayerProfile = null;
+    lastHandledAuthUserId = null;
+    updateHomeDisplay();
+    loadYesterdayScore();
+    return;
+  }
+
+  currentUser = nextUser;
+
+  if (lastHandledAuthUserId !== nextUserId || !currentPlayerProfile) {
+    currentPlayerProfile = null;
+    await ensurePlayerProfile();
+    lastHandledAuthUserId = nextUserId;
+  }
+
+  showScreen('home');
+  updateUserPill();
+  updateHomeDisplay();
+  loadYesterdayScore();
+}
 
 async function initAuth() {
   // Check for magic link callback
   const { data: { session } } = await supabaseClient.auth.getSession();
   if(session) {
-    currentUser = session.user;
-    await ensurePlayerProfile();
-    showScreen('home');
-    updateUserPill();
-    updateHomeDisplay();
+    await applyAuthSession(session);
     return;
   }
   
   // Listen for auth changes
   supabaseClient.auth.onAuthStateChange(async (event, session) => {
-    if(session) {
-      currentUser = session.user;
-      await ensurePlayerProfile();
-      showScreen('home');
-      updateUserPill();
-      updateHomeDisplay();
-    } else {
-      currentUser = null;
-      currentPlayerProfile = null;
-      updateHomeDisplay();
-    }
+    await applyAuthSession(session);
   });
   
   showScreen('auth');
@@ -527,8 +548,10 @@ async function sendMagicLink() {
 function continueAsGuest() {
   currentUser = null;
   currentPlayerProfile = null;
+  lastHandledAuthUserId = null;
   showScreen('home');
   updateHomeDisplay();
+  loadYesterdayScore();
 }
 
 function showAuthMsg(msg) {
@@ -555,7 +578,9 @@ async function signOut() {
   await supabaseClient.auth.signOut();
   currentUser = null;
   currentPlayerProfile = null;
+  lastHandledAuthUserId = null;
   updateHomeDisplay();
+  loadYesterdayScore();
   showScreen('auth');
 }
 
@@ -566,6 +591,7 @@ const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 let PUZZLES = [];
 let leaderboardState = { status: 'loading', entries: [] };
 let yesterdayScoreSummary = null;
+let lastRenderedScore = null;
 
 async function loadPuzzlesFromSupabase() {
   const today = getLocalDateString();
@@ -1036,7 +1062,6 @@ function updateHomeDisplay() {
 
   updateAuthGameNameCard();
   renderLeaderboard();
-  loadYesterdayScore();
 }
 
 // ── UTILS ────────────────────────────────────────────────────
@@ -1068,7 +1093,16 @@ function updateDots() {
 }
 
 function updateScoreBadge() {
-  document.getElementById('scoreBadge').textContent = totalScore+' pts';
+  const badge = document.getElementById('scoreBadge');
+  if (!badge) return;
+  const shouldAnimate = lastRenderedScore !== null && totalScore !== lastRenderedScore;
+  badge.textContent = totalScore+' pts';
+  lastRenderedScore = totalScore;
+  if (!shouldAnimate) return;
+  badge.classList.remove('score-pop');
+  void badge.offsetWidth;
+  badge.classList.add('score-pop');
+  setTimeout(() => badge.classList.remove('score-pop'), 220);
 }
 
 function startTimer(seconds, onEnd) {
@@ -1102,22 +1136,29 @@ async function startGame() {
   gameStartTime=Date.now();
   currentSessionScoreSaved = false;
   scoreBreakdown = [];
+  lastRenderedScore = null;
   showScreen('puzzle');
   renderPuzzle(0);
 }
 
 function renderPuzzle(idx) {
-  updateDots();
-  updateScoreBadge();
-  startTime = Date.now();
   const p = PUZZLES[idx];
   const body = document.getElementById('puzzleBody');
+  updateDots();
+  startTime = Date.now();
 
   if(p.type==='memory') renderMemory(p, body);
   else if(p.type==='choice') renderChoice(p, body);
   else if(p.type==='math') renderMath(p, body);
   else if(p.type==='strategy') renderStrategy(p, body);
   else if(p.type==='creativity') renderCreativity(p, body);
+
+  updateScoreBadge();
+  if (body) {
+    body.classList.remove('puzzle-enter');
+    void body.offsetWidth;
+    body.classList.add('puzzle-enter');
+  }
 }
 
 let autoAdvanceInterval = null;
@@ -1153,6 +1194,14 @@ function showAutoAdvance(pts, correct) {
       nextPuzzle(pts, correct);
     }
   }, 1000);
+}
+
+function animateReveal(correct) {
+  const reveal = document.querySelector('.reveal');
+  if (!reveal) return;
+  reveal.classList.remove('success-pop', 'failure-pop');
+  void reveal.offsetWidth;
+  reveal.classList.add(correct ? 'success-pop' : 'failure-pop');
 }
 
 function showSkip() {
@@ -1216,7 +1265,9 @@ function choiceAnswer(btn, chosen) {
     ${correct&&bonus?`<div class="reveal-correct">⚡ Speed bonus: +${bonus} pts</div>`:''}
     <div class="reveal-explain">${p.explanation}</div>
   </div>
-  <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,correct);
+  <button class="btn-next" style="display:none"></button>`;
+  animateReveal(correct);
+  showAutoAdvance(pts,correct);
 }
 
 // ── RENDER MATH ──────────────────────────────────────────────
@@ -1346,7 +1397,9 @@ function memCheckAnswer(p, submitted) {
       <div class="reveal-correct">${correct?'✅ Correct!':'✅ Correct sequence: '+p.answer.join(' ')}</div>
       <div class="reveal-explain">The sequence was: ${p.answer.join(' → ')}</div>
     </div>
-    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,correct);
+    <button class="btn-next" style="display:none"></button>`;
+    animateReveal(correct);
+    showAutoAdvance(pts,correct);
   }
 }
 
@@ -1445,7 +1498,9 @@ function checkStrategy(auto) {
       <div class="reveal-correct">${correct?'✅ Perfect order!':'✅ Correct order shown below'}</div>
       <div class="reveal-explain">${p.explanation}</div>
     </div>
-    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,correct);
+    <button class="btn-next" style="display:none"></button>`;
+    animateReveal(correct);
+    showAutoAdvance(pts,correct);
   }
 }
 
@@ -1494,7 +1549,9 @@ function checkCreativity() {
       <div class="reveal-correct">✅ Correct! "${p.answer}"</div>
       <div class="reveal-explain">${p.explanation}</div>
     </div>
-    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(pts,true);
+    <button class="btn-next" style="display:none"></button>`;
+    animateReveal(true);
+    showAutoAdvance(pts,true);
     const btn = document.querySelector('.btn-submit');
     if(btn) btn.style.display='none';
   } else {
@@ -1550,7 +1607,9 @@ function creativityChoice(btn, chosen, answer) {
         <div class="reveal-correct">${correct?'✅ Correct! (50 pts — partial credit)':'✅ Correct answer: '+answer}</div>
         <div class="reveal-explain">${p.explanation}</div>
       </div>
-      <button class="btn-next" style="display:none"></button>`); showAutoAdvance(pts,correct);
+      <button class="btn-next" style="display:none"></button>`);
+    animateReveal(correct);
+    showAutoAdvance(pts,correct);
   }
 }
 
@@ -1570,7 +1629,9 @@ function autoFail(p) {
       <div class="reveal-correct">✅ Correct answer: ${Array.isArray(p.answer)?p.answer.join(' → '):p.answer}</div>
       <div class="reveal-explain">${p.explanation||''}</div>
     </div>
-    <button class="btn-next" style="display:none"></button>`; showAutoAdvance(0,false);
+    <button class="btn-next" style="display:none"></button>`;
+    animateReveal(false);
+    showAutoAdvance(0,false);
     document.querySelectorAll('.opt,.btn-submit').forEach(b=>b.disabled=true);
   }
 }
