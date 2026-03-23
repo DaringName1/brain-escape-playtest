@@ -206,6 +206,14 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .yesterday-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; margin-bottom:6px; letter-spacing:-0.3px; }
 .yesterday-main { font-size:14px; color:var(--ink-light); line-height:1.45; }
 .yesterday-main strong { color:var(--ink); font-size:16px; }
+.yesterday-hook { margin-top:10px; padding-top:10px; border-top:1px solid var(--border); font-size:13px; font-weight:700; color:var(--accent2); line-height:1.4; }
+.streak-badge-row { display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.streak-badge { display:inline-flex; align-items:center; gap:6px; background:#EEF2FF; color:#3730A3; border:1px solid #C7D2FE; border-radius:999px; padding:7px 10px; font-size:12px; font-weight:700; }
+.streak-badge.locked { background:var(--cream); color:var(--ink-light); border-color:var(--border); }
+.results-note { background:var(--white); border-radius:16px; border:1px solid var(--border); padding:14px 16px; margin-bottom:16px; text-align:left; }
+.results-note-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; margin-bottom:4px; }
+.results-note-body { font-size:13px; color:var(--ink-light); line-height:1.45; }
+.results-note-body strong { color:var(--ink); }
 .breakdown-card { background:var(--white); border-radius:18px; border:1px solid var(--border); overflow:hidden; margin-bottom:16px; text-align:left; }
 .breakdown-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; padding:14px 16px; border-bottom:1px solid var(--border); background:var(--cream); }
 .breakdown-row { display:grid; grid-template-columns:28px 1fr auto; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); }
@@ -286,6 +294,10 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   .yesterday-card { padding:18px 16px; margin-top:14px; }
   .yesterday-title { font-size:19px; }
   .yesterday-main { font-size:15px; }
+  .yesterday-hook { font-size:14px; }
+  .streak-badge { font-size:13px; }
+  .results-note-title { font-size:15px; }
+  .results-note-body { font-size:14px; }
   .breakdown-row { grid-template-columns:24px 1fr auto; gap:10px; padding:12px 14px; }
   .breakdown-name { font-size:14px; }
   .breakdown-meta, .breakdown-bonus { font-size:12px; }
@@ -405,11 +417,13 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       <span class="streak-num" id="homeStreakNum">-</span>
       <span id="homeStreakLabel">sign in to track</span>
     </div>
+    <div class="streak-badge-row" id="homeStreakBadges"></div>
   </div>
   <button class="btn-start" onclick="startGame()">Start Today's Challenge</button>
   <div class="yesterday-card">
     <div class="yesterday-title">Yesterday's Score</div>
     <div id="yesterdaySummary" class="yesterday-main">Sign in to compare with yesterday.</div>
+    <div id="yesterdayHook" class="yesterday-hook">Beat it today.</div>
   </div>
   <div class="leaderboard-card">
     <div class="leaderboard-head">
@@ -453,6 +467,8 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
       <div class="bar-track"><div class="bar-fill" id="resBar" style="width:0%"></div></div>
       <div class="bar-sub">Be the first to share your result!</div>
     </div>
+    <div id="resultsRankCard"></div>
+    <div id="resultsBadgeCard"></div>
     <div id="shareCardContainer"></div>
     <div id="scoreBreakdownContainer"></div>
     <div id="answersSummaryContainer"></div><button class="btn-share" onclick="shareResult()">📤 Share Result Card</button>
@@ -494,6 +510,7 @@ async function applyAuthSession(session) {
   updateUserPill();
   updateHomeDisplay();
   loadYesterdayScore();
+  loadUserRankToday();
 }
 
 async function initAuth() {
@@ -549,6 +566,7 @@ function continueAsGuest() {
   currentUser = null;
   currentPlayerProfile = null;
   lastHandledAuthUserId = null;
+  currentUserRankToday = null;
   showScreen('home');
   updateHomeDisplay();
   loadYesterdayScore();
@@ -579,6 +597,7 @@ async function signOut() {
   currentUser = null;
   currentPlayerProfile = null;
   lastHandledAuthUserId = null;
+  currentUserRankToday = null;
   updateHomeDisplay();
   loadYesterdayScore();
   showScreen('auth');
@@ -591,6 +610,8 @@ const SUPABASE_KEY = 'sb_publishable__jfPLPm_6H2hygIIhz1HJg_o-0r2YN6';
 let PUZZLES = [];
 let leaderboardState = { status: 'loading', entries: [] };
 let yesterdayScoreSummary = null;
+let todayScoreSummary = null;
+let currentUserRankToday = null;
 let lastRenderedScore = null;
 
 async function loadPuzzlesFromSupabase() {
@@ -817,39 +838,70 @@ async function getLatestScoreEntry(userId) {
 
 async function loadYesterdayScore() {
   const summaryEl = document.getElementById('yesterdaySummary');
+  const hookEl = document.getElementById('yesterdayHook');
   if (!summaryEl) return;
 
   if (!currentUser) {
     yesterdayScoreSummary = null;
+    todayScoreSummary = null;
+    currentUserRankToday = null;
     summaryEl.innerHTML = 'Sign in to compare with yesterday.';
+    if (hookEl) hookEl.textContent = 'Sign in to build your streak and beat your best.';
     return;
   }
 
+  const today = getLocalDateString();
   const yesterday = shiftDateString(getLocalDateString(), -1);
   const { data, error } = await supabaseClient
     .from('scores')
     .select('score, puzzles_solved, time_seconds, puzzle_date')
     .eq('player_id', currentUser.id)
-    .eq('puzzle_date', yesterday)
+    .in('puzzle_date', [yesterday, today])
     .order('created_at', { ascending: false })
-    .limit(1);
+    .limit(4);
 
   if (error) {
     console.error('Could not load yesterday score:', error.message);
     yesterdayScoreSummary = null;
+    todayScoreSummary = null;
     summaryEl.innerHTML = 'Yesterday comparison coming soon.';
+    if (hookEl) hookEl.textContent = 'Beat yesterday is coming soon.';
     return;
   }
 
-  const row = Array.isArray(data) && data.length ? data[0] : null;
-  yesterdayScoreSummary = row;
+  const rows = Array.isArray(data) ? data : [];
+  const yesterdayRow = rows.find(row => row.puzzle_date === yesterday) || null;
+  const todayRow = rows.find(row => row.puzzle_date === today) || null;
+  yesterdayScoreSummary = yesterdayRow;
+  todayScoreSummary = todayRow;
 
-  if (!row) {
+  if (!yesterdayRow) {
     summaryEl.innerHTML = `No score saved for <strong>${formatDisplayDate(new Date(yesterday + 'T12:00:00'))}</strong>.`;
+    if (hookEl) {
+      hookEl.textContent = todayRow
+        ? `Nice start today. Keep your streak going.`
+        : 'First target: set a score today.';
+    }
     return;
   }
 
-  summaryEl.innerHTML = `Yesterday you scored <strong>${row.score}</strong>, solved <strong>${row.puzzles_solved}/8</strong>, and finished in <strong>${formatTime(row.time_seconds || 0)}</strong>.`;
+  summaryEl.innerHTML = `Yesterday you scored <strong>${yesterdayRow.score}</strong>, solved <strong>${yesterdayRow.puzzles_solved}/8</strong>, and finished in <strong>${formatTime(yesterdayRow.time_seconds || 0)}</strong>.`;
+
+  if (!hookEl) return;
+  if (!todayRow) {
+    hookEl.textContent = `Beat yesterday: ${yesterdayRow.score + 1} points gets it done.`;
+    return;
+  }
+
+  const delta = (todayRow.score || 0) - (yesterdayRow.score || 0);
+  if (delta > 0) {
+    hookEl.textContent = `You're ahead by ${delta} point${delta === 1 ? '' : 's'} today.`;
+  } else if (delta === 0) {
+    hookEl.textContent = 'Tied with yesterday. One more point beats it.';
+  } else {
+    const gap = Math.abs(delta);
+    hookEl.textContent = `You need ${gap + 1} more point${gap === 0 ? '' : 's'} to beat yesterday.`;
+  }
 }
 
 function computeUpdatedPlayerStats(profile, latestPlayedDate, today, latestScore) {
@@ -931,6 +983,84 @@ function formatLeaderboardName(rawName, playerId, index) {
   const safeId = String(playerId || '').replace(/-/g, '');
   if (safeId) return `Player ${safeId.slice(0, 4)}`;
   return `Player ${index + 1}`;
+}
+
+function getStreakBadge(streak) {
+  if (streak >= 100) return { icon: '🏆', label: '100 Day Legend' };
+  if (streak >= 30) return { icon: '⚡', label: '30 Day Run' };
+  if (streak >= 7) return { icon: '🔥', label: '7 Day Streak' };
+  return null;
+}
+
+function buildStreakBadgeMarkup() {
+  if (!currentUser) {
+    return `<div class="streak-badge locked">Sign in for badges</div>`;
+  }
+
+  const streak = currentPlayerProfile?.streak_count || 0;
+  const activeBadge = getStreakBadge(streak);
+  if (activeBadge) {
+    return `<div class="streak-badge">${activeBadge.icon} ${activeBadge.label}</div>`;
+  }
+
+  const nextMilestone = streak < 7 ? 7 : streak < 30 ? 30 : 100;
+  const remaining = Math.max(0, nextMilestone - streak);
+  return `<div class="streak-badge locked">Next badge in ${remaining} day${remaining === 1 ? '' : 's'}</div>`;
+}
+
+async function loadUserRankToday() {
+  currentUserRankToday = null;
+  if (!currentUser) {
+    renderResultsExtras();
+    return null;
+  }
+
+  const today = getLocalDateString();
+  const { data, error } = await supabaseClient
+    .from('daily_leaderboard')
+    .select('player_id, score, puzzles_solved, time_seconds, puzzle_date')
+    .eq('puzzle_date', today)
+    .order('score', { ascending: false })
+    .order('puzzles_solved', { ascending: false })
+    .order('time_seconds', { ascending: true })
+    .limit(250);
+
+  if (error) {
+    console.error('Could not load user rank:', error.message);
+    renderResultsExtras();
+    return null;
+  }
+
+  const entries = Array.isArray(data) ? data : [];
+  const rankIndex = entries.findIndex(entry => entry.player_id === currentUser.id);
+  currentUserRankToday = rankIndex >= 0 ? rankIndex + 1 : null;
+  renderResultsExtras();
+  return currentUserRankToday;
+}
+
+function renderResultsExtras() {
+  const rankCard = document.getElementById('resultsRankCard');
+  const badgeCard = document.getElementById('resultsBadgeCard');
+
+  if (rankCard) {
+    if (!currentUser) {
+      rankCard.innerHTML = `<div class="results-note"><div class="results-note-title">Your Rank Today</div><div class="results-note-body">Sign in to see how you stack up on today's board.</div></div>`;
+    } else if (currentUserRankToday) {
+      rankCard.innerHTML = `<div class="results-note"><div class="results-note-title">Your Rank Today</div><div class="results-note-body">You're currently <strong>#${currentUserRankToday}</strong> on today's leaderboard.</div></div>`;
+    } else {
+      rankCard.innerHTML = `<div class="results-note"><div class="results-note-title">Your Rank Today</div><div class="results-note-body">Finish a signed-in run to claim your spot on today's board.</div></div>`;
+    }
+  }
+
+  if (badgeCard) {
+    const badge = getStreakBadge(currentPlayerProfile?.streak_count || 0);
+    const body = !currentUser
+      ? 'Sign in to unlock streak badges.'
+      : badge
+        ? `Badge unlocked: <strong>${badge.icon} ${badge.label}</strong>. Keep the streak alive.`
+        : `Keep going. Your next streak badge is waiting.`;
+    badgeCard.innerHTML = `<div class="results-note"><div class="results-note-title">Streak Badge</div><div class="results-note-body">${body}</div></div>`;
+  }
 }
 
 function renderLeaderboard() {
@@ -1058,6 +1188,11 @@ function updateHomeDisplay() {
       streakNumEl.textContent = String(streak);
       streakLabelEl.textContent = streak === 1 ? 'day' : 'days';
     }
+  }
+
+  const badgeRow = document.getElementById('homeStreakBadges');
+  if (badgeRow) {
+    badgeRow.innerHTML = buildStreakBadgeMarkup();
   }
 
   updateAuthGameNameCard();
@@ -1869,6 +2004,8 @@ async function saveScoreIfSignedIn(summary) {
   currentSessionScoreSaved = true;
   updateHomeDisplay();
   loadLeaderboard();
+  loadYesterdayScore();
+  await loadUserRankToday();
 
   const resultStreakEl = document.getElementById('resStreak');
   if (resultStreakEl) {
@@ -1881,6 +2018,8 @@ async function saveScoreIfSignedIn(summary) {
       shareCardEl.innerHTML = buildShareCard(lastResultSummary.solved, lastResultSummary.totalTime, lastResultSummary.pct);
     }
   }
+
+  renderResultsExtras();
 }
 
 function showResults() {
@@ -1902,6 +2041,7 @@ function showResults() {
   document.getElementById('resBar').style.width = pct+'%';
 
   document.getElementById('shareCardContainer').innerHTML = buildShareCard(solved, totalTime, pct);
+  renderResultsExtras();
   document.getElementById('scoreBreakdownContainer').innerHTML = buildScoreBreakdown();
   document.getElementById('answersSummaryContainer').innerHTML = buildAnswersSummary(); showScreen('results');
 }
