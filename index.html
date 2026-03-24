@@ -682,7 +682,15 @@ async function loadPuzzlesFromSupabase() {
       } else if(key === 'spatial') {
         return { ...meta, question: d.question, options: d.options, answer: d.answer, explanation: d.explanation, hint: d.hint };
       } else if(key === 'math') {
-        return { ...meta, question: d.question, grid: d.grid, answer: d.answer, options: d.options, rule: d.rule, explanation: d.rule };
+        return {
+          ...meta,
+          question: d.question,
+          grid: d.grid || null,
+          answer: d.answer,
+          options: d.options,
+          rule: d.rule || '',
+          explanation: d.explanation || d.rule || ''
+        };
       } else if(key === 'strategy') {
         return { ...meta, question: d.question, shuffled: d.shuffled_steps, answer: d.answer, explanation: d.explanation || 'Put the steps in the correct order.' };
       } else if(key === 'creativity') {
@@ -1428,14 +1436,18 @@ function choiceAnswer(btn, chosen) {
 function renderMath(p, body) {
   let html = `<div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>`;
   html += `<div class="puzzle-q">${p.question}</div>`;
-  html += `<div class="math-grid">`;
-  p.grid.forEach(row=>{
-    row.forEach(cell=>{
-      if(cell===null) html+=`<div class="math-cell missing">?</div>`;
-      else html+=`<div class="math-cell">${cell}</div>`;
+  if (Array.isArray(p.grid)) {
+    html += `<div class="math-grid">`;
+    p.grid.forEach(row=>{
+      row.forEach(cell=>{
+        if(cell===null) html+=`<div class="math-cell missing">?</div>`;
+        else html+=`<div class="math-cell">${cell}</div>`;
+      });
     });
-  });
-  html += `</div>`;
+    html += `</div>`;
+  } else if (p.explanation) {
+    html += `<div class="puzzle-sub">${p.explanation}</div>`;
+  }
   html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${o}')">${o}</button>`).join('')}</div>`;
   html += `<div id="reveal"></div>`;
   html += `<button class="skip-btn" onclick="showSkip()">Skip</button>`;
