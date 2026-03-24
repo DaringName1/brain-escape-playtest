@@ -202,6 +202,11 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
 .bar-track { background:var(--cream); border-radius:100px; height:7px; overflow:hidden; }
 .bar-fill { height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:100px; }
 .bar-sub { font-size:11px; color:var(--ink-light); margin-top:5px; }
+.results-insights { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+.results-insights > div { min-width:0; }
+.results-insights .results-note { margin-bottom:0; height:100%; }
+.results-share-area { margin-bottom:18px; }
+.results-actions { display:flex; flex-direction:column; gap:10px; }
 .yesterday-card { background:var(--white); border-radius:24px; padding:20px 22px; box-shadow:var(--shadow); border:1px solid var(--border); width:100%; max-width:420px; margin-top:12px; margin-bottom:24px; }
 .yesterday-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; margin-bottom:6px; letter-spacing:-0.3px; }
 .yesterday-main { font-size:14px; color:var(--ink-light); line-height:1.45; }
@@ -344,6 +349,7 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
   .stat-lbl { font-size:12px; }
   .pct-bar { padding:16px; }
   .pct-bar p { font-size:15px; line-height:1.4; }
+  .results-insights { grid-template-columns:1fr; gap:10px; }
   .answers-sum-title { font-size:15px; }
   .answer-row { padding:14px; }
   .answer-section-lbl { font-size:11px; }
@@ -468,17 +474,24 @@ body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--in
         <div class="stat-item"><div class="stat-val" id="resStreak">-</div><div class="stat-lbl">Streak</div></div>
       </div>
     </div>
-    <div class="pct-bar">
+<div class="pct-bar">
       <p id="resPct">Better than 0% of players today</p>
       <div class="bar-track"><div class="bar-fill" id="resBar" style="width:0%"></div></div>
-      <div class="bar-sub">Be the first to share your result!</div>
+      <div class="bar-sub">Share your score and challenge a friend.</div>
     </div>
-    <div id="resultsRankCard"></div>
-    <div id="resultsBadgeCard"></div>
-    <div id="shareCardContainer"></div>
+    <div class="results-insights">
+      <div id="resultsRankCard"></div>
+      <div id="resultsBadgeCard"></div>
+    </div>
+    <div class="results-share-area">
+      <div id="shareCardContainer"></div>
+      <div class="results-actions">
+        <button class="btn-share" onclick="shareResult()">📤 Share Result Card</button>
+        <button class="btn-again" onclick="showScreen('home')">← Back to Home</button>
+      </div>
+    </div>
     <div id="scoreBreakdownContainer"></div>
-    <div id="answersSummaryContainer"></div><button class="btn-share" onclick="shareResult()">📤 Share Result Card</button>
-    <button class="btn-again" onclick="showScreen('home')">← Back to Home</button>
+    <div id="answersSummaryContainer"></div>
   </div>
 </div>
 
