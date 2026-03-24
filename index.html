@@ -635,17 +635,34 @@ let lastRenderedScore = null;
 
 async function loadPuzzlesFromSupabase() {
   const today = getLocalDateString();
-  const url = `${SUPABASE_URL}/rest/v1/puzzles?puzzle_date=eq.${today}&is_active=eq.true&order=brain_section`;
   
   try {
-    const res = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
+    let data = null;
+    const { data: clientData, error: clientError } = await supabaseClient
+      .from('puzzles')
+      .select('brain_section, puzzle_data')
+      .eq('puzzle_date', today)
+      .eq('is_active', true)
+      .order('brain_section');
+
+    if (!clientError && Array.isArray(clientData)) {
+      data = clientData;
+    } else {
+      const url = `${SUPABASE_URL}/rest/v1/puzzles?puzzle_date=eq.${today}&is_active=eq.true&select=brain_section,puzzle_data&order=brain_section`;
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error(clientError?.message || `Request failed (${res.status})`);
       }
-    });
-    
-    const data = await res.json();
+
+      data = await res.json();
+    }
     
     if(!data || data.length === 0) {
       showLoadError("No puzzles found for today (" + today + "). Please run the generator first.");
@@ -716,8 +733,8 @@ function showLoadError(msg) {
       <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px">No Puzzles Today</div>
       <div style="font-size:14px;color:var(--ink-light);margin-bottom:24px">${msg}</div>
       <div style="background:var(--white);border-radius:14px;padding:16px;border:1px solid var(--border);font-size:13px;text-align:left">
-        Run this in your terminal:<br><br>
-        <code style="background:var(--cream);padding:4px 8px;border-radius:6px">node generate-smart.js</code>
+        Try refreshing the page first.<br><br>
+        If you're using a privacy browser or strong shields, allow this site to load external data and try again.
       </div>
     </div>`;
 }
