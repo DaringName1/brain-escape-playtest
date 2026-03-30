@@ -690,18 +690,31 @@ async function loadPuzzlesFromSupabase() {
       const meta = sectionMeta[key];
       
       if(key === 'memory') {
-        return { ...meta, instruction: d.instruction, sequence: d.sequence, answer: d.answer, decoys: d.decoys, hint: d.hint };
+        return {
+          ...meta,
+          gameType: d.game_type || 'emoji sequence',
+          instruction: d.instruction,
+          question: d.question,
+          sequence: d.sequence,
+          grid: d.grid || null,
+          options: d.options || null,
+          answer: d.answer,
+          decoys: d.decoys,
+          hint: d.hint,
+          explanation: d.explanation || ''
+        };
       } else if(key === 'logic') {
-        return { ...meta, scenario: d.scenario, clues: d.clues, options: d.options, answer: d.answer, explanation: d.explanation };
+        return { ...meta, gameType: d.game_type || '4-clue deduction', scenario: d.scenario, clues: d.clues, options: d.options, answer: d.answer, explanation: d.explanation };
       } else if(key === 'language') {
-        return { ...meta, question: d.question, options: d.options, answer: d.answer, explanation: d.explanation };
+        return { ...meta, gameType: d.game_type || 'analogy', question: d.question, options: d.options, answer: d.answer, explanation: d.explanation };
       } else if(key === 'pattern') {
-        return { ...meta, question: d.question, sequence: d.sequence, options: d.options, answer: d.answer, rule: d.rule, explanation: 'The rule: ' + d.rule };
+        return { ...meta, gameType: d.game_type || 'next number', question: d.question, sequence: d.sequence, options: d.options, answer: d.answer, rule: d.rule, explanation: d.explanation || ('The rule: ' + d.rule) };
       } else if(key === 'spatial') {
-        return { ...meta, question: d.question, options: d.options, answer: d.answer, explanation: d.explanation, hint: d.hint };
+        return { ...meta, gameType: d.game_type || 'rotation', question: d.question, options: d.options, answer: d.answer, explanation: d.explanation, hint: d.hint };
       } else if(key === 'math') {
         return {
           ...meta,
+          gameType: d.game_type || 'mental math',
           question: d.question,
           grid: d.grid || null,
           answer: d.answer,
@@ -710,9 +723,31 @@ async function loadPuzzlesFromSupabase() {
           explanation: d.explanation || d.rule || ''
         };
       } else if(key === 'strategy') {
-        return { ...meta, question: d.question, shuffled: d.shuffled_steps, answer: d.answer, explanation: d.explanation || 'Put the steps in the correct order.' };
+        const gameType = d.game_type || 'step ordering';
+        return {
+          ...meta,
+          type: gameType === 'best next step' ? 'choice' : meta.type,
+          gameType,
+          question: d.question,
+          options: d.options || null,
+          shuffled: d.shuffled_steps,
+          answer: d.answer,
+          explanation: d.explanation || 'Put the steps in the correct order.'
+        };
       } else if(key === 'creativity') {
-        return { ...meta, riddle: d.riddle, answer: d.answer, hint: d.hint, explanation: d.explanation, wrongOptions: d.wrong_options || [] };
+        const gameType = d.game_type || 'lateral riddle';
+        return {
+          ...meta,
+          type: gameType === 'connection puzzle' ? 'choice' : meta.type,
+          gameType,
+          question: d.question,
+          options: d.options || null,
+          riddle: d.riddle,
+          answer: d.answer,
+          hint: d.hint,
+          explanation: d.explanation,
+          wrongOptions: d.wrong_options || []
+        };
       }
       return null;
     }).filter(Boolean);
@@ -1405,7 +1440,7 @@ function renderChoice(p, body) {
 
   if(p.hint) html += `<div class="hint-box">💡 Hint: ${p.hint}</div>`;
 
-  html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${o}')">${o}</button>`).join('')}</div>`;
+  html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`;
   html += `<div id="reveal"></div>`;
   html += `<button class="skip-btn" onclick="showSkip()">Skip (1 free skip remaining)</button>`;
 
@@ -1466,7 +1501,7 @@ function renderMath(p, body) {
   } else if (p.explanation) {
     html += `<div class="puzzle-sub">${p.explanation}</div>`;
   }
-  html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${o}')">${o}</button>`).join('')}</div>`;
+  html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`;
   html += `<div id="reveal"></div>`;
   html += `<button class="skip-btn" onclick="showSkip()">Skip</button>`;
   body.innerHTML = html;
@@ -1475,6 +1510,11 @@ function renderMath(p, body) {
 
 // ── RENDER MEMORY ────────────────────────────────────────────
 function renderMemory(p, body) {
+  if (p.gameType === 'position recall') {
+    renderMemoryPositionRecallV2(p, body);
+    return;
+  }
+
   memPhase = 'show';
   memSelected = [];
   memCountdown = 10;
@@ -1533,6 +1573,96 @@ function showMemoryAnswer(p, body) {
   startTimer(35, ()=>{
     memCheckAnswer(p, false);
   });
+}
+
+function renderMemoryPositionRecall(p, body) {
+  memPhase = 'show';
+  memCountdown = 8;
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} Â· ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">Remember where each item was</div>
+    <div class="mem-phase" id="memPhaseBox">
+      <h4>Study the grid â€” ${memCountdown} seconds</h4>
+      <div class="mem-countdown" id="memCD">8</div>
+      <div class="mem-grid" id="memGridStudy">
+        ${(p.grid || []).flat().map(e=>`<div class="mem-item">${e}</div>`).join('')}
+      </div>
+    </div>
+    <div class="hint-box">ðŸ’¡ Hint: ${p.hint}</div>
+    <div id="reveal"></div>`;
+
+  document.getElementById('timer').textContent = '0:08';
+  document.getElementById('timer').classList.remove('warn');
+
+  memCountdownInterval = setInterval(()=>{
+    memCountdown--;
+    const cd = document.getElementById('memCD');
+    if(cd) cd.textContent = memCountdown;
+    const t = document.getElementById('timer');
+    if(t) { t.textContent = formatTime(memCountdown); if(memCountdown<=3) t.classList.add('warn'); }
+    if(memCountdown <= 0) {
+      clearInterval(memCountdownInterval);
+      showMemoryPositionQuestion(p, body);
+    }
+  }, 1000);
+}
+
+function showMemoryPositionQuestion(p, body) {
+  body.innerHTML = `
+    <div class="section-tag">${p.section} Â· ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="puzzle-sub">Pick the item from memory.</div>
+    <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  startTime = Date.now();
+  startTimer(20, ()=>autoFail(p));
+}
+
+function renderMemoryPositionRecallV2(p, body) {
+  memPhase = 'show';
+  memCountdown = 8;
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">Remember where each item was</div>
+    <div class="mem-phase" id="memPhaseBox">
+      <h4>Study the grid - ${memCountdown} seconds</h4>
+      <div class="mem-countdown" id="memCD">8</div>
+      <div class="mem-grid" id="memGridStudy">
+        ${(p.grid || []).flat().map(e=>`<div class="mem-item">${e}</div>`).join('')}
+      </div>
+    </div>
+    <div class="hint-box">Hint: ${p.hint}</div>
+    <div id="reveal"></div>`;
+
+  document.getElementById('timer').textContent = '0:08';
+  document.getElementById('timer').classList.remove('warn');
+
+  memCountdownInterval = setInterval(()=>{
+    memCountdown--;
+    const cd = document.getElementById('memCD');
+    if(cd) cd.textContent = memCountdown;
+    const t = document.getElementById('timer');
+    if(t) { t.textContent = formatTime(memCountdown); if(memCountdown<=3) t.classList.add('warn'); }
+    if(memCountdown <= 0) {
+      clearInterval(memCountdownInterval);
+      showMemoryPositionQuestionV2(p, body);
+    }
+  }, 1000);
+}
+
+function showMemoryPositionQuestionV2(p, body) {
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="puzzle-sub">Pick the item from memory.</div>
+    <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  startTime = Date.now();
+  startTimer(20, ()=>autoFail(p));
 }
 
 function memTap(btn, emoji) {
