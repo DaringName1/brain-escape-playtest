@@ -697,6 +697,12 @@ async function loadPuzzlesFromSupabase() {
           question: d.question,
           sequence: d.sequence,
           grid: d.grid || null,
+          matchGrid: d.match_grid || null,
+          beforeGrid: d.before_grid || null,
+          afterGrid: d.after_grid || null,
+          pairs: d.pairs || null,
+          shownItems: d.shown_items || null,
+          remainingItems: d.remaining_items || null,
           options: d.options || null,
           answer: d.answer,
           decoys: d.decoys,
@@ -704,13 +710,13 @@ async function loadPuzzlesFromSupabase() {
           explanation: d.explanation || ''
         };
       } else if(key === 'logic') {
-        return { ...meta, gameType: d.game_type || '4-clue deduction', scenario: d.scenario, clues: d.clues, options: d.options, answer: d.answer, explanation: d.explanation };
+        return { ...meta, gameType: d.game_type || '4-clue deduction', scenario: d.scenario, question: d.question, wordBank: d.word_bank || null, sudokuGrid: d.sudoku_grid || null, clues: d.clues, options: d.options, answer: d.answer, explanation: d.explanation };
       } else if(key === 'language') {
         return { ...meta, gameType: d.game_type || 'analogy', question: d.question, options: d.options, answer: d.answer, explanation: d.explanation };
       } else if(key === 'pattern') {
-        return { ...meta, gameType: d.game_type || 'next number', question: d.question, sequence: d.sequence, options: d.options, answer: d.answer, rule: d.rule, explanation: d.explanation || ('The rule: ' + d.rule) };
+        return { ...meta, gameType: d.game_type || 'next number', question: d.question, sequence: d.sequence, matrix: d.matrix || null, setCards: d.set_cards || null, options: d.options, answer: d.answer, rule: d.rule, explanation: d.explanation || ('The rule: ' + d.rule) };
       } else if(key === 'spatial') {
-        return { ...meta, gameType: d.game_type || 'rotation', question: d.question, options: d.options, answer: d.answer, explanation: d.explanation, hint: d.hint };
+        return { ...meta, gameType: d.game_type || 'rotation', question: d.question, options: d.options, answer: d.answer, explanation: d.explanation, hint: d.hint, targetShape: d.target_shape || null };
       } else if(key === 'math') {
         return {
           ...meta,
@@ -726,7 +732,7 @@ async function loadPuzzlesFromSupabase() {
         const gameType = d.game_type || 'step ordering';
         return {
           ...meta,
-          type: gameType === 'best next step' ? 'choice' : meta.type,
+          type: (gameType === 'best next step' || gameType === 'weakest link' || gameType === 'cause and effect' || gameType === 'river crossing') ? 'choice' : meta.type,
           gameType,
           question: d.question,
           options: d.options || null,
@@ -738,7 +744,7 @@ async function loadPuzzlesFromSupabase() {
         const gameType = d.game_type || 'lateral riddle';
         return {
           ...meta,
-          type: gameType === 'connection puzzle' ? 'choice' : meta.type,
+          type: (gameType === 'connection puzzle' || gameType === 'object match' || gameType === 'hidden link' || gameType === 'rebus') ? 'choice' : meta.type,
           gameType,
           question: d.question,
           options: d.options || null,
@@ -1430,9 +1436,30 @@ function renderChoice(p, body) {
   if(p.clues) {
     html += `<div class="puzzle-q">${p.scenario}</div>`;
     html += `<div class="clues">${p.clues.map((c,i)=>`<div class="clue"><span class="clue-n">${i+1}</span>${c}</div>`).join('')}</div>`;
+  } else if(p.sudokuGrid) {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+    html += `<div class="math-grid">${p.sudokuGrid.flat().map(cell=>`<div class="math-cell ${cell===null?'missing':''}">${cell===null?'?':cell}</div>`).join('')}</div>`;
+    html += `<div class="puzzle-sub">Pick the number that completes the grid.</div>`;
+  } else if(p.wordBank) {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+    html += `<div class="mem-grid" style="margin-bottom:14px">${p.wordBank.map(w=>`<div class="mem-item">${w}</div>`).join('')}</div>`;
+    html += `<div class="puzzle-sub">Pick the set that belongs together.</div>`;
+  } else if(p.setCards) {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+    html += `<div class="mem-grid" style="margin-bottom:14px">${p.setCards.map(card=>`<div class="mem-item">${card}</div>`).join('')}</div>`;
+    html += `<div class="puzzle-sub">Pick the card that completes the set.</div>`;
+  } else if(p.matrix) {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+    html += `<div class="math-grid">${p.matrix.flat().map(cell=>`<div class="math-cell ${cell==='?'?'missing':''}">${cell}</div>`).join('')}</div>`;
+    html += `<div class="puzzle-sub">Find the missing cell.</div>`;
+  } else if(p.targetShape) {
+    html += `<div class="puzzle-q">${p.question}</div>`;
+    html += `<div class="mem-phase" style="margin:14px 0"><h4 style="margin-bottom:8px">Target shadow</h4><div class="mem-item" style="background:#1d1f2d;color:#f5efe0;min-width:160px">${p.targetShape}</div></div>`;
+    html += `<div class="puzzle-sub">Pick the shape that matches the shadow.</div>`;
   } else if(p.sequence) {
     html += `<div class="puzzle-q">${p.question}</div>`;
-    html += `<div class="seq-row">${p.sequence.map(n=>`<div class="seq-n">${n}</div><div class="seq-arr">›</div>`).join('')}<div class="seq-n unknown">?</div></div>`;
+    const needsUnknown = p.gameType !== 'rule match' && p.gameType !== 'pattern repair';
+    html += `<div class="seq-row">${p.sequence.map((n,i)=>`${i>0?'<div class="seq-arr">›</div>':''}<div class="seq-n">${n}</div>`).join('')}${needsUnknown?'<div class="seq-arr">›</div><div class="seq-n unknown">?</div>':''}</div>`;
     if(p.rule) html += `<div class="puzzle-sub">Find the rule...</div>`;
   } else {
     html += `<div class="puzzle-q">${p.question}</div>`;
@@ -1498,8 +1525,8 @@ function renderMath(p, body) {
       });
     });
     html += `</div>`;
-  } else if (p.explanation) {
-    html += `<div class="puzzle-sub">${p.explanation}</div>`;
+  } else if (p.rule) {
+    html += `<div class="puzzle-sub">${p.rule}</div>`;
   }
   html += `<div class="options" id="optGrid">${p.options.map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>`;
   html += `<div id="reveal"></div>`;
@@ -1512,6 +1539,22 @@ function renderMath(p, body) {
 function renderMemory(p, body) {
   if (p.gameType === 'position recall') {
     renderMemoryPositionRecallV2(p, body);
+    return;
+  }
+  if (p.gameType === 'memory match') {
+    renderMemoryMatch(p, body);
+    return;
+  }
+  if (p.gameType === 'spot the difference') {
+    renderMemorySpotDifference(p, body);
+    return;
+  }
+  if (p.gameType === 'missing item') {
+    renderMemoryMissingItem(p, body);
+    return;
+  }
+  if (p.gameType === 'pair recall') {
+    renderMemoryPairRecall(p, body);
     return;
   }
 
@@ -1658,6 +1701,164 @@ function showMemoryPositionQuestionV2(p, body) {
     <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
     <div class="puzzle-q">${p.question}</div>
     <div class="puzzle-sub">Pick the item from memory.</div>
+    <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  startTime = Date.now();
+  startTimer(20, ()=>autoFail(p));
+}
+
+function renderMemoryMissingItem(p, body) {
+  memPhase = 'show';
+  memCountdown = 8;
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">Remember these items</div>
+    <div class="mem-phase" id="memPhaseBox">
+      <h4>Study the set - ${memCountdown} seconds</h4>
+      <div class="mem-countdown" id="memCD">8</div>
+      <div class="mem-grid" id="memGridStudy">
+        ${(p.shownItems || []).map(e=>`<div class="mem-item">${e}</div>`).join('')}
+      </div>
+    </div>
+    <div class="hint-box">Hint: ${p.hint}</div>
+    <div id="reveal"></div>`;
+
+  document.getElementById('timer').textContent = '0:08';
+  document.getElementById('timer').classList.remove('warn');
+
+  memCountdownInterval = setInterval(()=>{
+    memCountdown--;
+    const cd = document.getElementById('memCD');
+    if(cd) cd.textContent = memCountdown;
+    const t = document.getElementById('timer');
+    if(t) { t.textContent = formatTime(memCountdown); if(memCountdown<=3) t.classList.add('warn'); }
+    if(memCountdown <= 0) {
+      clearInterval(memCountdownInterval);
+      showMemoryMissingQuestion(p, body);
+    }
+  }, 1000);
+}
+
+function showMemoryMissingQuestion(p, body) {
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="mem-grid" style="margin-bottom:14px">${(p.remainingItems || []).map(e=>`<div class="mem-item">${e}</div>`).join('')}</div>
+    <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  startTime = Date.now();
+  startTimer(20, ()=>autoFail(p));
+}
+
+function renderMemorySpotDifference(p, body) {
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="puzzle-sub">Compare the two grids and pick what changed.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
+      <div class="mem-phase" style="margin:0">
+        <h4 style="margin-bottom:8px">Before</h4>
+        <div class="mem-grid">${(p.beforeGrid || []).flat().map(e=>`<div class="mem-item">${e}</div>`).join('')}</div>
+      </div>
+      <div class="mem-phase" style="margin:0">
+        <h4 style="margin-bottom:8px">After</h4>
+        <div class="mem-grid">${(p.afterGrid || []).flat().map(e=>`<div class="mem-item">${e}</div>`).join('')}</div>
+      </div>
+    </div>
+    <div class="hint-box">Hint: ${p.hint}</div>
+    <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  startTime = Date.now();
+  startTimer(20, ()=>autoFail(p));
+}
+
+function renderMemoryMatch(p, body) {
+  memPhase = 'show';
+  memCountdown = 8;
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">Remember where the matching pair was</div>
+    <div class="mem-phase" id="memPhaseBox">
+      <h4>Study the board - ${memCountdown} seconds</h4>
+      <div class="mem-countdown" id="memCD">8</div>
+      <div class="mem-grid" id="memGridStudy">
+        ${(p.matchGrid || []).flat().map(e=>`<div class="mem-item">${e}</div>`).join('')}
+      </div>
+    </div>
+    <div class="hint-box">Hint: ${p.hint}</div>
+    <div id="reveal"></div>`;
+
+  document.getElementById('timer').textContent = '0:08';
+  document.getElementById('timer').classList.remove('warn');
+
+  memCountdownInterval = setInterval(()=>{
+    memCountdown--;
+    const cd = document.getElementById('memCD');
+    if(cd) cd.textContent = memCountdown;
+    const t = document.getElementById('timer');
+    if(t) { t.textContent = formatTime(memCountdown); if(memCountdown<=3) t.classList.add('warn'); }
+    if(memCountdown <= 0) {
+      clearInterval(memCountdownInterval);
+      showMemoryMatchQuestion(p, body);
+    }
+  }, 1000);
+}
+
+function showMemoryMatchQuestion(p, body) {
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="puzzle-sub">Pick the two positions that matched.</div>
+    <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
+    <div id="reveal"></div>
+    <button class="skip-btn" onclick="showSkip()">Skip</button>`;
+  startTime = Date.now();
+  startTimer(20, ()=>autoFail(p));
+}
+
+function renderMemoryPairRecall(p, body) {
+  memPhase = 'show';
+  memCountdown = 8;
+
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">Remember which items were paired together</div>
+    <div class="mem-phase" id="memPhaseBox">
+      <h4>Study the pairs - ${memCountdown} seconds</h4>
+      <div class="mem-countdown" id="memCD">8</div>
+      <div class="mem-grid" id="memGridStudy">
+        ${(p.pairs || []).map(pair=>`<div class="mem-item">${pair[0]} + ${pair[1]}</div>`).join('')}
+      </div>
+    </div>
+    <div class="hint-box">Hint: ${p.hint}</div>
+    <div id="reveal"></div>`;
+
+  document.getElementById('timer').textContent = '0:08';
+  document.getElementById('timer').classList.remove('warn');
+
+  memCountdownInterval = setInterval(()=>{
+    memCountdown--;
+    const cd = document.getElementById('memCD');
+    if(cd) cd.textContent = memCountdown;
+    const t = document.getElementById('timer');
+    if(t) { t.textContent = formatTime(memCountdown); if(memCountdown<=3) t.classList.add('warn'); }
+    if(memCountdown <= 0) {
+      clearInterval(memCountdownInterval);
+      showMemoryPairQuestion(p, body);
+    }
+  }, 1000);
+}
+
+function showMemoryPairQuestion(p, body) {
+  body.innerHTML = `
+    <div class="section-tag">${p.section} · ${currentIdx+1} of 8</div>
+    <div class="puzzle-q">${p.question}</div>
+    <div class="puzzle-sub">Pick the pair from memory.</div>
     <div class="options" id="optGrid">${(p.options || []).map(o=>`<button class="opt" onclick="choiceAnswer(this,'${String(o).replace(/'/g,"\\'")}')">${o}</button>`).join('')}</div>
     <div id="reveal"></div>
     <button class="skip-btn" onclick="showSkip()">Skip</button>`;
